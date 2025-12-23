@@ -195,6 +195,7 @@ def calculate_match(user_skills, job_skills, user_exp, job_exp):
     return final_score, matched_skills, missing_skills
 ```
 
+
 ### Model Training
 - Uses TF-IDF vectorization on job descriptions
 - Trains on historical 6-12 months of data
@@ -207,7 +208,7 @@ def calculate_match(user_skills, job_skills, user_exp, job_exp):
 Edit `.streamlit/config.toml`:
 ```toml
 [theme]
-primaryColor = "#667eea"
+primaryColor = "#5673f1ff"
 backgroundColor = "#FFFFFF"
 
 [server]
@@ -284,9 +285,7 @@ Optimize usage:
 4. Push to branch (`git push origin feature/AmazingFeature`)
 5. Open Pull Request
 
-## 📄 License
 
-This project is licensed under the MIT License.
 
 ## 👏 Acknowledgments
 
