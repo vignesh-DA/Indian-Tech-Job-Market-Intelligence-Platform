@@ -35,15 +35,16 @@ class AdzunaAPI:
         
         logging.info("Initialized Adzuna API client")
     
-    def search_jobs(self, keywords="software engineer", location="", results_per_page=50, page=1):
+    def search_jobs(self, keywords="software engineer", location="", results_per_page=50, page=1, timeout=10):
         """
-        Search for jobs using Adzuna API
+        Search for jobs using Adzuna API with retry logic
         
         Args:
             keywords: Job search keywords
             location: Location filter
             results_per_page: Number of results per page (max 50)
             page: Page number
+            timeout: Request timeout in seconds
             
         Returns:
             List of job dictionaries
@@ -64,21 +65,42 @@ class AdzunaAPI:
             
             logging.info(f"Fetching jobs: {keywords} in {location}")
             
-            response = requests.get(url, params=params, timeout=30)
-            response.raise_for_status()
+            # Add retry logic
+            max_retries = 2
+            for attempt in range(max_retries + 1):
+                try:
+                    response = requests.get(url, params=params, timeout=timeout)
+                    response.raise_for_status()
+                    
+                    data = response.json()
+                    jobs = data.get('results', [])
+                    
+                    logging.info(f"Fetched {len(jobs)} jobs from Adzuna")
+                    return jobs
+                    
+                except requests.exceptions.Timeout:
+                    if attempt < max_retries:
+                        logging.warning(f"Timeout attempt {attempt + 1}/{max_retries + 1}, retrying...")
+                        continue
+                    else:
+                        logging.error("API timeout - max retries exceeded")
+                        return []
+                except requests.exceptions.ConnectionError:
+                    if attempt < max_retries:
+                        logging.warning(f"Connection error attempt {attempt + 1}/{max_retries + 1}, retrying...")
+                        continue
+                    else:
+                        logging.error("API connection error - max retries exceeded")
+                        return []
             
-            data = response.json()
-            jobs = data.get('results', [])
-            
-            logging.info(f"Fetched {len(jobs)} jobs from Adzuna")
-            return jobs
+            return []
             
         except requests.exceptions.RequestException as e:
             logging.error(f"API request error: {str(e)}")
             return []
         except Exception as e:
             logging.error(f"Error in search_jobs: {str(e)}")
-            raise CustomException(e, sys)
+            return []
     
     def fetch_multiple_roles(self, roles, locations, max_results_per_role=100):
         """
@@ -253,11 +275,14 @@ class AdzunaAPI:
 
 def fetch_and_save_jobs(app_id=None, app_key=None):
     """
-    Main function to fetch jobs and save to CSV
+    Main function to fetch jobs and save to CSV with fallback to existing data
     
     Args:
         app_id: Adzuna app ID
         app_key: Adzuna app key
+        
+    Returns:
+        DataFrame with fetched jobs, or None if fetch fails
     """
     try:
         logging.info("Starting job fetch process")
@@ -286,12 +311,29 @@ def fetch_and_save_jobs(app_id=None, app_key=None):
             'Chennai'
         ]
         
-        # Fetch jobs
+        # Fetch jobs with reduced timeout to avoid hanging
         jobs_df = api.fetch_multiple_roles(roles, locations, max_results_per_role=50)
         
         if jobs_df.empty:
-            logging.warning("No jobs fetched")
+            logging.warning("No jobs fetched from API")
             return None
+        
+        # Delete old model file to force retraining on new data
+        model_file = 'models/recommendation_model.pkl'
+        if os.path.exists(model_file):
+            try:
+                file_size = os.path.getsize(model_file) / (1024*1024)
+                os.remove(model_file)
+                logging.info("=" * 60)
+                logging.info("DELETING OLD PICKLE MODEL FILE")
+                logging.info("=" * 60)
+                logging.info(f"❌ PICKLE DELETED: {model_file}")
+                logging.info(f"   - Size: {file_size:.2f} MB")
+                logging.info(f"   - Path: {os.path.abspath(model_file)}")
+                logging.info(f"   - Reason: New data fetched, model will retrain")
+                logging.info("=" * 60)
+            except Exception as e:
+                logging.warning(f"Could not delete model file: {str(e)}")
         
         # Save to CSV
         from src.data_loader import save_jobs_to_csv
@@ -302,7 +344,7 @@ def fetch_and_save_jobs(app_id=None, app_key=None):
         
     except Exception as e:
         logging.error(f"Error in fetch_and_save_jobs: {str(e)}")
-        raise CustomException(e, sys)
+        return None
 
 
 if __name__ == "__main__":

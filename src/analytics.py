@@ -44,9 +44,9 @@ def calculate_salary_trends(jobs_df, group_by='location'):
             'avg_salary': ['mean', 'median', 'min', 'max', 'count']
         }).round(0)
         
-        salary_stats.columns = ['mean', 'median', 'min', 'max', 'count']
+        salary_stats.columns = ['Average Salary', 'Typical Salary', 'Lowest Salary', 'Highest Salary', 'Number of Jobs']
         salary_stats = salary_stats.reset_index()
-        salary_stats = salary_stats.sort_values('mean', ascending=False)
+        salary_stats = salary_stats.sort_values('Average Salary', ascending=False)
         
         logging.info(f"Calculated salary trends for {len(salary_stats)} groups")
         return salary_stats

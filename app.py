@@ -6,10 +6,15 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime
 import sys
+import os
+from dotenv import load_dotenv
 from src.logger import logging
 from src.exception import CustomException
 from src.data_loader import load_recent_jobs
 from src.scrapers import fetch_and_save_jobs
+
+# Load environment variables
+load_dotenv()
 
 
 # Page configuration
@@ -35,6 +40,19 @@ if 'saved_jobs' not in st.session_state:
 
 if 'applications' not in st.session_state:
     st.session_state.applications = []
+
+# Data Management state
+if 'fetch_in_progress' not in st.session_state:
+    st.session_state.fetch_in_progress = False
+
+if 'fetch_status' not in st.session_state:
+    st.session_state.fetch_status = None  # 'success', 'error', or None
+
+if 'fetch_message' not in st.session_state:
+    st.session_state.fetch_message = ""
+
+if 'last_updated_timestamp' not in st.session_state:
+    st.session_state.last_updated_timestamp = None
 
 # Custom CSS
 st.markdown("""
@@ -68,6 +86,60 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 
+def fetch_jobs_callback():
+    """Callback function to handle job fetching with proper state management"""
+    st.session_state.fetch_in_progress = True
+    st.session_state.fetch_status = None
+    st.session_state.fetch_message = ""
+    
+    try:
+        app_id = os.getenv('ADZUNA_APP_ID')
+        app_key = os.getenv('ADZUNA_APP_KEY')
+        
+        result = fetch_and_save_jobs(app_id, app_key)
+        
+        if result is not None and not result.empty:
+            st.session_state.fetch_status = 'success'
+            st.session_state.fetch_message = f"✅ Successfully updated! {len(result)} jobs fetched."
+            st.session_state.last_updated_timestamp = datetime.now()
+            logging.info(f"Job fetch successful: {len(result)} jobs")
+        else:
+            st.session_state.fetch_status = 'error'
+            st.session_state.fetch_message = "❌ Failed to fetch jobs. Please try again."
+            logging.warning("Job fetch returned empty data")
+            
+    except Exception as e:
+        st.session_state.fetch_status = 'error'
+        st.session_state.fetch_message = f"❌ Error: {str(e)}"
+        logging.error(f"Error fetching jobs: {str(e)}")
+    
+    finally:
+        st.session_state.fetch_in_progress = False
+
+
+def get_last_updated_display():
+    """Get formatted last updated timestamp from latest CSV file"""
+    try:
+        data_dir = "data"
+        if not os.path.exists(data_dir):
+            return "Never"
+        
+        csv_files = [f for f in os.listdir(data_dir) if f.endswith('.csv')]
+        if not csv_files:
+            return "Never"
+        
+        file_paths = [os.path.join(data_dir, f) for f in csv_files]
+        latest_file = max(file_paths, key=os.path.getmtime)
+        
+        mod_time = os.path.getmtime(latest_file)
+        last_updated = datetime.fromtimestamp(mod_time)
+        
+        return last_updated.strftime("%B %d, %Y at %I:%M %p")
+    except Exception as e:
+        logging.error(f"Error getting last updated time: {str(e)}")
+        return "Unknown"
+
+
 def initialize_session_state():
     """Initialize session state variables"""
     if 'user_profile' not in st.session_state:
@@ -95,8 +167,7 @@ def display_home():
         st.markdown("""
         ### Welcome to Your AI-Powered Job Search Assistant
         
-        Get personalized job recommendations, market insights, and career guidance powered by 
-        machine learning and real-time data from Adzuna API.
+        Discover smarter job matches and career insights tailored just for you.
         """)
         
         # Features
@@ -221,39 +292,50 @@ def display_home():
         
         st.divider()
         
-        # Data refresh section
-        st.subheader("🔄 Data Management")
+        # Data Management Section
+        st.subheader("📥 Data Management")
         
-        col1, col2 = st.columns([3, 1])
+        col1, col2, col3 = st.columns([2, 1, 1])
         
         with col1:
-            st.info("""
-            **Note**: Job data is fetched from Adzuna API. To use this feature:
-            1. Sign up at https://developer.adzuna.com/
-            2. Get your App ID and App Key
-            3. Set environment variables: `ADZUNA_APP_ID` and `ADZUNA_APP_KEY`
-            4. Click 'Fetch Latest Jobs' to update the database
+            st.markdown("""
+            Keep your job database up to date by fetching the latest opportunities from our data source.
             """)
         
         with col2:
-            if st.button("🔄 Fetch Latest Jobs", type="primary"):
-                with st.spinner("Fetching jobs from Adzuna..."):
-                    try:
-                        result = fetch_and_save_jobs()
-                        if result is not None and not result.empty:
-                            st.success(f"✅ Successfully fetched {len(result)} jobs!")
-                            st.rerun()
-                        else:
-                            st.error("❌ Failed to fetch jobs. Check your API credentials.")
-                    except Exception as e:
-                        st.error(f"❌ Error: {str(e)}")
-                        logging.error(f"Error fetching jobs: {str(e)}")
+            # Fetch button with disabled state during loading
+            if st.session_state.fetch_in_progress:
+                st.button(
+                    "⏳ Fetching latest jobs…",
+                    disabled=True,
+                    use_container_width=True,
+                    type="primary"
+                )
+                st.info("⏳ Fetching fresh job data. This may take up to 3 minutes. Please do not refresh or leave this page.")
+            else:
+                st.button(
+                    "📥 Fetch Latest Jobs",
+                    on_click=fetch_jobs_callback,
+                    use_container_width=True,
+                    type="primary"
+                )
         
-        # Last updated info
-        if st.session_state.jobs_loaded:
-            last_update = jobs_df['posted_date'].max()
-            if pd.notna(last_update):
-                st.caption(f"Last updated: {last_update.strftime('%Y-%m-%d %H:%M')}")
+        with col3:
+            pass  # Spacing
+        
+        # Status messages
+        if st.session_state.fetch_status == 'success':
+            st.success(st.session_state.fetch_message, icon="✅")
+            st.session_state.fetch_status = None  # Clear after displaying
+        
+        if st.session_state.fetch_status == 'error':
+            st.error(st.session_state.fetch_message, icon="❌")
+            st.session_state.fetch_status = None  # Clear after displaying
+        
+        # Last updated timestamp
+        st.divider()
+        last_updated_str = get_last_updated_display()
+        st.caption(f"Last updated: {last_updated_str}")
         
     except Exception as e:
         logging.error(f"Error in display_home: {str(e)}")

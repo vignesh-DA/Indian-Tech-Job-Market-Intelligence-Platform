@@ -56,7 +56,7 @@ def initialize_engine():
         return None
 
 
-def display_job_card(job, rank):
+def display_job_card(job, rank, unique_id=None):
     """Display a job recommendation card"""
     with st.container():
         col1, col2 = st.columns([3, 1])
@@ -124,7 +124,9 @@ def display_job_card(job, rank):
         col1, col2, col3 = st.columns([2, 2, 6])
         
         with col1:
-            if st.button("💾 Save Job", key=f"save_{job['job_id']}"):
+            # Use unique_id to ensure button key is always unique
+            button_key = f"save_{unique_id}_{rank}" if unique_id else f"save_{job['job_id']}_{rank}"
+            if st.button("💾 Save Job", key=button_key):
                 if job['job_id'] not in [j['job_id'] for j in st.session_state.saved_jobs]:
                     st.session_state.saved_jobs.append(job.to_dict())
                     st.success("Job saved!")
@@ -299,7 +301,7 @@ def main():
             
             # Display each job
             for idx, (_, job) in enumerate(filtered_recs.iterrows(), 1):
-                display_job_card(job, idx)
+                display_job_card(job, idx, unique_id=idx)
             
             # Learning suggestions
             if not filtered_recs.empty:

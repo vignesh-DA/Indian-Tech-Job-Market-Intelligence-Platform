@@ -81,6 +81,11 @@ class JobRecommendationEngine:
                 logging.warning("Model not trained")
                 return pd.DataFrame()
             
+            # Validate vectorizer state
+            if not hasattr(self.vectorizer, 'idf_') or self.vectorizer.idf_ is None:
+                logging.error("Vectorizer is not properly fitted")
+                return pd.DataFrame()
+            
             # Extract user profile info
             user_skills = user_profile.get('skills', [])
             user_experience = user_profile.get('experience', '')
@@ -312,7 +317,12 @@ class JobRecommendationEngine:
             with open(filepath, 'wb') as f:
                 pickle.dump(model_data, f)
             
-            logging.info(f"Model saved to {filepath}")
+            file_size = os.path.getsize(filepath)
+            num_jobs = len(self.jobs_df) if self.jobs_df is not None else 0
+            logging.info(f"✅ MODEL CREATED: {filepath}")
+            logging.info(f"   - File size: {file_size / (1024*1024):.2f} MB")
+            logging.info(f"   - Jobs trained: {num_jobs}")
+            logging.info(f"   - Vectorizer features: {len(self.vectorizer.vocabulary_)}")
             
         except Exception as e:
             logging.error(f"Error saving model: {str(e)}")
@@ -337,11 +347,23 @@ class JobRecommendationEngine:
             self.job_vectors = model_data['job_vectors']
             self.jobs_df = model_data['jobs_df']
             
+            # Validate vectorizer is properly fitted
+            if not hasattr(self.vectorizer, 'idf_') or self.vectorizer.idf_ is None:
+                logging.warning("Loaded vectorizer IDF is not fitted, model loading failed")
+                self.vectorizer = None
+                self.job_vectors = None
+                self.jobs_df = None
+                return False
+            
             logging.info(f"Model loaded from {filepath}")
             return True
             
         except Exception as e:
             logging.error(f"Error loading model: {str(e)}")
+            # Reset state on error
+            self.vectorizer = None
+            self.job_vectors = None
+            self.jobs_df = None
             return False
 
 

@@ -52,10 +52,10 @@ def create_salary_chart(salary_df, group_by):
     fig = px.bar(
         salary_df.head(10),
         x=group_by,
-        y='mean',
+        y='Average Salary',
         title=f"Average Salary by {group_by.title()}",
-        labels={'mean': 'Average Salary (₹)', group_by: group_by.title()},
-        color='mean',
+        labels={'Average Salary': 'Average Salary (₹)', group_by: group_by.title()},
+        color='Average Salary',
         color_continuous_scale='Viridis'
     )
     
@@ -382,10 +382,11 @@ def main():
             if not salary_by_location.empty:
                 st.dataframe(
                     salary_by_location.style.format({
-                        'mean': '₹{:,.0f}',
-                        'median': '₹{:,.0f}',
-                        'min': '₹{:,.0f}',
-                        'max': '₹{:,.0f}'
+                        'Average Salary': '₹{:,.0f}',
+                        'Typical Salary': '₹{:,.0f}',
+                        'Lowest Salary': '₹{:,.0f}',
+                        'Highest Salary': '₹{:,.0f}',
+                        'Number of Jobs': '{:,.0f}'
                     }),
                     use_container_width=True
                 )
@@ -419,34 +420,6 @@ def main():
                 )
             else:
                 st.info("No location data")
-        
-        # Export option
-        st.divider()
-        st.subheader("💾 Export Data")
-        
-        col1, col2, col3 = st.columns([2, 2, 6])
-        
-        with col1:
-            # Export filtered jobs
-            csv = filtered_df.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="📥 Download Jobs CSV",
-                data=csv,
-                file_name=f"jobs_{datetime.now().strftime('%Y%m%d')}.csv",
-                mime="text/csv"
-            )
-        
-        with col2:
-            # Export salary stats
-            salary_stats = calculate_salary_trends(filtered_df, group_by='location')
-            if not salary_stats.empty:
-                salary_csv = salary_stats.to_csv(index=False).encode('utf-8')
-                st.download_button(
-                    label="📥 Download Salary Stats",
-                    data=salary_csv,
-                    file_name=f"salary_stats_{datetime.now().strftime('%Y%m%d')}.csv",
-                    mime="text/csv"
-                )
         
     except Exception as e:
         logging.error(f"Error in dashboard: {str(e)}")
