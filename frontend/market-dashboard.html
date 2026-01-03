@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Market Dashboard - Tech Job Intelligence</title>
+    <link rel="stylesheet" href="/assets/css/variables.css">
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <link rel="stylesheet" href="/assets/css/components.css">
+    <link rel="stylesheet" href="/assets/css/responsive.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <i class="fas fa-briefcase"></i>
+                <span>Tech Job Intelligence</span>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="/" class="nav-link">Home</a></li>
+                <li><a href="/recommendations" class="nav-link">Recommendations</a></li>
+                <li><a href="/dashboard" class="nav-link active">Dashboard</a></li>
+                <li><a href="/saved-jobs" class="nav-link">Saved Jobs</a></li>
+            </ul>
+            <div class="navbar-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <div class="container" style="padding-top: var(--spacing-2xl); padding-bottom: var(--spacing-2xl);">
+            <h1 style="margin-bottom: var(--spacing-lg);">📊 Market Dashboard</h1>
+            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-2xl);">
+                Real-time insights into the Indian tech job market trends, opportunities, and salary data.
+            </p>
+
+            <!-- Summary Metrics -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg); margin-bottom: var(--spacing-2xl);">
+                <div class="card" style="padding: var(--spacing-lg); text-align: center;">
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Total Jobs</p>
+                    <p id="totalJobsMetric" style="font-size: var(--text-3xl); font-weight: var(--font-bold); color: var(--primary-color);">-</p>
+                </div>
+                <div class="card" style="padding: var(--spacing-lg); text-align: center;">
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Companies Hiring</p>
+                    <p id="companiesMetric" style="font-size: var(--text-3xl); font-weight: var(--font-bold); color: var(--secondary-color);">-</p>
+                </div>
+                <div class="card" style="padding: var(--spacing-lg); text-align: center;">
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Locations</p>
+                    <p id="locationsMetric" style="font-size: var(--text-3xl); font-weight: var(--font-bold); color: var(--accent-color);">-</p>
+                </div>
+                <div class="card" style="padding: var(--spacing-lg); text-align: center;">
+                    <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Avg Salary</p>
+                    <p id="avgSalaryMetric" style="font-size: var(--text-3xl); font-weight: var(--font-bold); color: var(--success-color);">-</p>
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="card" style="margin-bottom: var(--spacing-2xl);">
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: var(--spacing-md);">
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="margin-bottom: var(--spacing-sm);">Days</label>
+                            <select id="daysFilter" class="form-select">
+                                <option value="7">Last 7 days</option>
+                                <option value="14">Last 14 days</option>
+                                <option value="30" selected>Last 30 days</option>
+                                <option value="90">Last 90 days</option>
+                            </select>
+                        </div>
+                        <div class="form-group" style="margin-bottom: 0;">
+                            <label class="form-label" style="margin-bottom: var(--spacing-sm);">Location</label>
+                            <select id="locationFilter" class="form-select">
+                                <option value="">All locations</option>
+                            </select>
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button class="btn btn-primary" id="refreshDashboard" style="width: 100%;">
+                                <i class="fas fa-sync"></i> Refresh
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Salary & Skills Analysis -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: var(--spacing-2xl); margin-bottom: var(--spacing-2xl);">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>💰 Salary Trends by Location</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="salaryTrendsChart" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>🔧 Top In-Demand Skills</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="skillsChart" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Companies & Locations Charts -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: var(--spacing-2xl); margin-bottom: var(--spacing-2xl);">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Top Hiring Companies</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="companiesChart" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>Jobs by Location</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="locationsChart" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Trends & Distribution -->
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(500px, 1fr)); gap: var(--spacing-2xl); margin-bottom: var(--spacing-2xl);">
+                <div class="card">
+                    <div class="card-header">
+                        <h3>📅 Job Posting Trends</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="trendsChart" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <div class="card-header">
+                        <h3>👥 Experience Distribution</h3>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="experienceChart" style="max-height: 300px;"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Roles Distribution -->
+            <div class="card" style="margin-bottom: var(--spacing-2xl);">
+                <div class="card-header">
+                    <h3>💼 Job Roles Distribution</h3>
+                </div>
+                <div class="card-body">
+                    <canvas id="rolesChart" style="max-height: 400px;"></canvas>
+                </div>
+            </div>
+
+            <!-- Salary Analytics -->
+            <div class="card" style="margin-bottom: var(--spacing-2xl);">
+                <div class="card-header">
+                    <h3>Salary Analytics</h3>
+                </div>
+                <div class="card-body">
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: var(--spacing-lg); margin-bottom: var(--spacing-2xl);">
+                        <div style="padding: var(--spacing-lg); background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); border-radius: var(--radius-md);">
+                            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Minimum Salary</p>
+                            <p id="minSalary" style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--primary-color);">-</p>
+                        </div>
+                        <div style="padding: var(--spacing-lg); background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); border-radius: var(--radius-md);">
+                            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Average Salary</p>
+                            <p id="avgSalary" style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--primary-color);">-</p>
+                        </div>
+                        <div style="padding: var(--spacing-lg); background: linear-gradient(135deg, rgba(102, 126, 234, 0.1), rgba(118, 75, 162, 0.1)); border-radius: var(--radius-md);">
+                            <p style="color: var(--text-secondary); margin-bottom: var(--spacing-sm);">Maximum Salary</p>
+                            <p id="maxSalary" style="font-size: var(--text-2xl); font-weight: var(--font-bold); color: var(--primary-color);">-</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Companies -->
+            <div class="card" style="margin-bottom: var(--spacing-2xl);">
+                <div class="card-header">
+                    <h3>Top Companies Hiring</h3>
+                </div>
+                <div class="card-body">
+                    <div id="topCompaniesContainer" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: var(--spacing-lg);">
+                        <div style="text-align: center; padding: var(--spacing-2xl);">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Locations -->
+            <div class="card" style="margin-bottom: var(--spacing-2xl);">
+                <div class="card-header">
+                    <h3>Top Job Locations</h3>
+                </div>
+                <div class="card-body">
+                    <div id="topLocationsContainer">
+                        <div style="text-align: center; padding: var(--spacing-2xl);">
+                            <div class="spinner"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Tech Job Intelligence</h4>
+                    <p>Your AI-powered job search assistant for the Indian tech market.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/recommendations">Recommendations</a></li>
+                        <li><a href="/dashboard">Dashboard</a></li>
+                        <li><a href="/saved-jobs">Saved Jobs</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>About</h4>
+                    <p>Built with ❤️ using modern web technologies</p>
+                    <p>© 2025 Tech Job Intelligence. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/assets/js/config.js"></script>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/utils.js"></script>
+    <script src="/assets/js/main.js"></script>
+    <script src="/assets/js/dashboard.js"></script>
+</body>
+</html>

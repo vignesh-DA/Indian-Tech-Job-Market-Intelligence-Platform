@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tech Job Market Intelligence - India</title>
+    <link rel="stylesheet" href="/assets/css/variables.css">
+    <link rel="stylesheet" href="/assets/css/styles.css">
+    <link rel="stylesheet" href="/assets/css/components.css">
+    <link rel="stylesheet" href="/assets/css/responsive.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="navbar-container">
+            <div class="navbar-brand">
+                <i class="fas fa-briefcase"></i>
+                <span>Tech Job Intelligence</span>
+            </div>
+            <ul class="navbar-menu">
+                <li><a href="/" class="nav-link active">Home</a></li>
+                <li><a href="/recommendations" class="nav-link">Recommendations</a></li>
+                <li><a href="/dashboard" class="nav-link">Dashboard</a></li>
+                <li><a href="/saved-jobs" class="nav-link">Saved Jobs</a></li>
+            </ul>
+            <div class="navbar-toggle" id="navToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <main class="main-content">
+        <!-- Hero Section -->
+        <section class="hero">
+            <div class="hero-content">
+                <h1 class="hero-title">🇮🇳 Indian Tech Job Market Intelligence</h1>
+                <p class="hero-subtitle">Discover smarter job matches and career insights tailored just for you</p>
+                <div class="hero-cta">
+                    <button class="btn btn-primary" onclick="window.location.href='/recommendations'">
+                        Get Recommendations <i class="fas fa-arrow-right"></i>
+                    </button>
+                    <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">
+                        View Dashboard <i class="fas fa-chart-bar"></i>
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features">
+            <div class="container">
+                <h2 class="section-title">Why Choose Us?</h2>
+                <div class="features-grid">
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-brain"></i>
+                        </div>
+                        <h3>Smart Recommendations</h3>
+                        <p>ML-powered job matching with skills gap analysis and personalized learning suggestions</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-chart-line"></i>
+                        </div>
+                        <h3>Market Intelligence</h3>
+                        <p>Real-time salary trends, in-demand skills, top hiring companies, and location insights</p>
+                    </div>
+                    <div class="feature-card">
+                        <div class="feature-icon">
+                            <i class="fas fa-bookmark"></i>
+                        </div>
+                        <h3>Save & Track</h3>
+                        <p>Bookmark favorite jobs, build your profile, track applications, and plan your career</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Statistics Section -->
+        <section class="stats-section">
+            <div class="container">
+                <h2 class="section-title">Market Overview</h2>
+                <div class="stats-grid" id="statsContainer">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalJobs">-</div>
+                        <div class="stat-label">Total Jobs</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="companiesHiring">-</div>
+                        <div class="stat-label">Companies Hiring</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="locations">-</div>
+                        <div class="stat-label">Locations</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgSalary">-</div>
+                        <div class="stat-label">Average Salary</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Getting Started Section -->
+        <section class="getting-started">
+            <div class="container">
+                <h2 class="section-title">Getting Started</h2>
+                <div class="getting-started-grid">
+                    <div class="getting-started-card">
+                        <div class="card-number">1</div>
+                        <h3>Build Your Profile</h3>
+                        <p>Enter your skills, experience, location preferences, and job role to get started.</p>
+                    </div>
+                    <div class="getting-started-card">
+                        <div class="card-number">2</div>
+                        <h3>Get Recommendations</h3>
+                        <p>Receive personalized job matches based on your profile and market fit.</p>
+                    </div>
+                    <div class="getting-started-card">
+                        <div class="card-number">3</div>
+                        <h3>Explore Opportunities</h3>
+                        <p>Browse, compare, and save jobs that interest you.</p>
+                    </div>
+                    <div class="getting-started-card">
+                        <div class="card-number">4</div>
+                        <h3>Track & Apply</h3>
+                        <p>Keep track of applications and get career insights.</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Data Management Section -->
+        <section class="data-management">
+            <div class="container">
+                <h2 class="section-title">Keep Data Fresh</h2>
+                <div class="data-management-content">
+                    <p>Keep your job database up to date by fetching the latest opportunities from our data source.</p>
+                    <button class="btn btn-primary" id="fetchJobsBtn">
+                        <i class="fas fa-download"></i> Fetch Latest Jobs
+                    </button>
+                    <div id="fetchStatus"></div>
+                    <p class="text-muted" id="lastUpdated">Last updated: Never</p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h4>Tech Job Intelligence</h4>
+                    <p>Your AI-powered job search assistant for the Indian tech market.</p>
+                </div>
+                <div class="footer-section">
+                    <h4>Quick Links</h4>
+                    <ul>
+                        <li><a href="/">Home</a></li>
+                        <li><a href="/recommendations">Recommendations</a></li>
+                        <li><a href="/dashboard">Dashboard</a></li>
+                        <li><a href="/saved-jobs">Saved Jobs</a></li>
+                    </ul>
+                </div>
+                <div class="footer-section">
+                    <h4>About</h4>
+                    <p>Built with ❤️ using modern web technologies</p>
+                    <p>© 2025 Tech Job Intelligence. All rights reserved.</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="/assets/js/config.js"></script>
+    <script src="/assets/js/api.js"></script>
+    <script src="/assets/js/utils.js"></script>
+    <script src="/assets/js/main.js"></script>
+</body>
+</html>
