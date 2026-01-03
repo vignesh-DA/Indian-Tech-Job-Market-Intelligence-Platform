@@ -528,29 +528,6 @@ function renderRecommendations(recommendations) {
                 skillsSection.appendChild(missingTags);
             }
 
-            // Recommended for candidates section
-            if (matchedSkills.length > 0) {
-                const recommendedBox = DOM.create('div', {
-                    style: 'padding: var(--spacing-md); background: #ede9fe; border-radius: 6px; border-left: 3px solid var(--primary-color); margin-top: var(--spacing-md);'
-                });
-
-                const recommendedTitle = DOM.create('p', {
-                    style: 'margin: 0 0 var(--spacing-sm) 0; font-size: 12px; color: var(--text-primary); font-weight: 600;',
-                    innerHTML: '<i class="fas fa-info-circle" style="color: var(--primary-color); margin-right: 6px;"></i>Recommended for candidates who:'
-                });
-                recommendedBox.appendChild(recommendedTitle);
-
-                matchedSkills.forEach(skill => {
-                    const recommendItem = DOM.create('p', {
-                        style: 'margin: 4px 0; font-size: 12px; color: var(--text-primary);',
-                        innerHTML: `<i class="fas fa-check" style="color: #10b981; margin-right: 6px;"></i>Have ${skill} experience`
-                    });
-                    recommendedBox.appendChild(recommendItem);
-                });
-
-                skillsSection.appendChild(recommendedBox);
-            }
-
             body.appendChild(skillsSection);
         }
 
@@ -617,6 +594,111 @@ function renderRecommendations(recommendations) {
     });
 
     container.appendChild(jobsGrid);
+
+    // Add Skills Development Path section
+    if (recommendations.length > 0) {
+        addSkillsDevelopmentPath(recommendations, container);
+    }
+}
+
+// Add Skills Development Path Section
+function addSkillsDevelopmentPath(recommendations, container) {
+    // Collect all missing skills and count frequency
+    const skillFrequency = {};
+    const userSkillsLower = userSkills.map(s => s.toLowerCase());
+
+    recommendations.forEach(job => {
+        if (job.required_skills && Array.isArray(job.required_skills)) {
+            job.required_skills.forEach(skill => {
+                const skillLower = skill.toLowerCase();
+                // Only count if user doesn't already have it
+                if (!userSkillsLower.includes(skillLower)) {
+                    skillFrequency[skill] = (skillFrequency[skill] || 0) + 1;
+                }
+            });
+        }
+    });
+
+    // Get top 5 most in-demand missing skills
+    const topSkills = Object.entries(skillFrequency)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 5)
+        .map(([skill, count]) => ({ skill, count }));
+
+    if (topSkills.length === 0) return;
+
+    // Create section
+    const skillsSection = DOM.create('div', {
+        style: 'margin-top: var(--spacing-3xl); padding: var(--spacing-2xl); background: linear-gradient(135deg, #f0f4ff, #f8f5ff); border-radius: var(--border-radius-lg);'
+    });
+
+    const title = DOM.create('h3', {
+        style: 'margin: 0 0 var(--spacing-sm) 0; color: var(--primary-color); font-size: 20px;',
+        innerHTML: '🚀 Skills Development Path'
+    });
+    skillsSection.appendChild(title);
+
+    const subtitle = DOM.create('p', {
+        style: 'margin: 0 0 var(--spacing-lg) 0; color: var(--text-secondary); font-size: 14px;',
+        innerHTML: 'Focus on these in-demand skills to increase your match scores:'
+    });
+    skillsSection.appendChild(subtitle);
+
+    // Skills grid
+    const skillsGrid = DOM.create('div', {
+        style: 'display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: var(--spacing-md);'
+    });
+
+    // Skill icons mapping
+    const skillIcons = {
+        'Python': '🐍',
+        'Java': '☕',
+        'JavaScript': '📜',
+        'SQL': '🗄️',
+        'AI': '💡',
+        'Machine Learning': '🤖',
+        'AWS': '☁️',
+        'Docker': '🐳',
+        'Kubernetes': '⚙️',
+        'React': '⚛️',
+        'Node.js': '📦',
+        'Go': '🐹',
+        'Rust': '🦀',
+        'TypeScript': '📘',
+        'C++': '➕',
+        'Git': '🌿',
+        'Linux': '🐧'
+    };
+
+    topSkills.forEach(({ skill, count }) => {
+        const skillCard = DOM.create('div', {
+            style: `padding: var(--spacing-md); background: white; border-radius: 8px; border-left: 4px solid var(--primary-color); 
+                   text-align: center; box-shadow: 0 2px 8px rgba(0,0,0,0.08);`
+        });
+
+        const icon = DOM.create('div', {
+            style: 'font-size: 28px; margin-bottom: 8px;',
+            innerHTML: skillIcons[skill] || '💼'
+        });
+        skillCard.appendChild(icon);
+
+        const skillName = DOM.create('p', {
+            style: 'margin: 0 0 6px 0; font-weight: 600; color: var(--text-primary); font-size: 13px;',
+            innerHTML: skill
+        });
+        skillCard.appendChild(skillName);
+
+        const count_text = DOM.create('p', {
+            style: 'margin: 0; font-size: 12px; color: var(--text-secondary);',
+            innerHTML: `Required by ${count} ${count === 1 ? 'job' : 'jobs'}`
+        });
+        skillCard.appendChild(count_text);
+
+        skillsGrid.appendChild(skillCard);
+    });
+
+    skillsSection.appendChild(skillsGrid);
+    container.appendChild(skillsSection);
 }
 
 // Update Recommendation Metrics
