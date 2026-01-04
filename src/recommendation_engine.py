@@ -11,6 +11,7 @@ import os
 import sys
 from src.logger import logging
 from src.exception import CustomException
+from src.data_loader import normalize_location
 
 
 class JobRecommendationEngine:
@@ -220,11 +221,11 @@ class JobRecommendationEngine:
     
     def _calculate_location_match(self, user_location, job_location_series):
         """
-        Calculate location match score
+        Calculate location match score using normalized locations
         
         Args:
-            user_location: User preferred location
-            job_location_series: Series of job locations
+            user_location: User preferred location (normalized)
+            job_location_series: Series of raw job locations
             
         Returns:
             Array of match scores (0-1)
@@ -237,18 +238,21 @@ class JobRecommendationEngine:
             user_loc_lower = user_location.lower()
             
             for job_loc in job_location_series:
-                if pd.isna(job_loc):
-                    matches.append(0.5)
-                elif user_loc_lower in str(job_loc).lower():
-                    matches.append(1.0)
+                # Normalize the job location
+                normalized_job_loc = normalize_location(job_loc).lower()
+                
+                if normalized_job_loc == user_loc_lower:
+                    matches.append(1.0)  # Exact match: prioritize (100%)
+                elif 'remote' in normalized_job_loc:
+                    matches.append(1.0)  # Remote: equal priority (100%)
                 else:
-                    matches.append(0.3)  # Different location
+                    matches.append(0.0)  # Different location: exclude completely
             
             return np.array(matches)
             
         except Exception as e:
             logging.error(f"Error calculating location match: {str(e)}")
-            return np.ones(len(job_location_series)) * 0.5
+            return np.ones(len(job_location_series)) * 0.0
     
     def _get_matched_skills(self, user_skills, job_skills_str):
         """

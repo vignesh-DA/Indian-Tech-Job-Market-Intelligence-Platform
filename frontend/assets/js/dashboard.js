@@ -147,9 +147,88 @@ async function loadDashboardData() {
 }
 
 // Filter and Render
-function filterAndRender() {
-    const locationFilter = DOM.byId('locationFilter').value;
-    // Filter functionality for future use
+async function filterAndRender() {
+    try {
+        const days = DOM.byId('daysFilter').value;
+        const location = DOM.byId('locationFilter').value;
+        
+        console.log('🔍 Filtering dashboard for location:', location);
+        
+        // If "All" selected, load full data
+        if (!location || location === 'All') {
+            loadDashboardData();
+            return;
+        }
+        
+        // Fetch filtered data
+        const [
+            jobs,
+            summaryStats,
+            topSkills,
+            salaryTrends,
+            locationStats,
+            roleDistribution,
+            experienceDistribution,
+            postingTrends
+        ] = await Promise.all([
+            API.getJobs(1, 1000, { days, location }),
+            fetch(`http://localhost:5000/api/summary-stats?days=${days}&location=${location}`).then(r => r.json()),
+            fetch(`http://localhost:5000/api/top-skills?days=${days}&location=${location}&top_n=15`).then(r => r.json()),
+            fetch(`http://localhost:5000/api/salary-trends?days=${days}&location=${location}&group_by=title`).then(r => r.json()),
+            fetch(`http://localhost:5000/api/location-stats?days=${days}&location=${location}`).then(r => r.json()),
+            fetch(`http://localhost:5000/api/role-distribution?days=${days}&location=${location}&top_n=10`).then(r => r.json()),
+            fetch(`http://localhost:5000/api/experience-distribution?days=${days}&location=${location}`).then(r => r.json()),
+            fetch(`http://localhost:5000/api/posting-trends?days=${days}&location=${location}`).then(r => r.json())
+        ]);
+        
+        // Update metrics
+        if (summaryStats && summaryStats.success && summaryStats.data) {
+            const stats = summaryStats.data;
+            DOM.byId('totalJobsMetric').textContent = (stats.total_jobs || 0).toLocaleString();
+            DOM.byId('companiesMetric').textContent = (stats.total_companies || 0).toLocaleString();
+            DOM.byId('locationsMetric').textContent = (stats.total_locations || 0).toLocaleString();
+            if (stats.avg_salary > 0) {
+                DOM.byId('avgSalaryMetric').textContent = '₹' + (stats.avg_salary / 100000).toFixed(2) + 'L';
+            }
+        }
+        
+        // Render charts with filtered data
+        if (salaryTrends && salaryTrends.success && salaryTrends.data) {
+            renderSalaryTrendsChart(salaryTrends.data);
+        }
+        
+        if (topSkills && topSkills.success && topSkills.data) {
+            renderSkillsChart(topSkills.data);
+        }
+        
+        if (roleDistribution && roleDistribution.success && roleDistribution.data) {
+            renderRolesChart(roleDistribution.data);
+        }
+        
+        if (experienceDistribution && experienceDistribution.success && experienceDistribution.data) {
+            renderExperienceChart(experienceDistribution.data);
+        }
+        
+        if (postingTrends && postingTrends.success && postingTrends.data) {
+            renderTrendsChart(postingTrends.data);
+        }
+        
+        // Render companies chart from jobs data
+        if (jobs && Array.isArray(jobs) && jobs.length > 0) {
+            const companyCounts = {};
+            jobs.forEach(job => {
+                const company = job.company || 'Unknown';
+                companyCounts[company] = (companyCounts[company] || 0) + 1;
+            });
+            renderCompaniesChart(companyCounts);
+        }
+        
+        console.log('✅ Dashboard filtered for:', location);
+        
+    } catch (error) {
+        console.error('Error filtering dashboard:', error);
+        Alert.error('Failed to filter dashboard: ' + error.message);
+    }
 }
 
 // Render Companies Chart

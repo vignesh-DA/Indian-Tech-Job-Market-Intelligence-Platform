@@ -62,17 +62,14 @@ const POPULAR_SKILLS = [
     'CI/CD',
 ];
 
-// Indian Tech Hubs
+// Indian Tech Hubs (normalized based on actual CSV data)
 const LOCATIONS = [
     'Bangalore',
-    'Hyderabad',
     'Chennai',
     'Delhi',
-    'Pune',
+    'Hyderabad',
     'Mumbai',
-    'Kolkata',
-    'Kochi',
-    'Ahmedabad',
+    'Pune',
     'Remote',
 ];
 

@@ -9,8 +9,9 @@ os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['OMP_NUM_THREADS'] = '1'
 
-from flask import Flask, jsonify, request, render_template, send_from_directory
+from flask import Flask, jsonify, request, render_template, send_from_directory, redirect, session
 from flask_cors import CORS
+from flask_session import Session
 from dotenv import load_dotenv
 import pandas as pd
 from datetime import datetime
@@ -29,6 +30,8 @@ from src.analytics import (
     calculate_summary_stats
 )
 from src.chatbot_engine import ChatbotEngine
+from src.oauth_handler import oauth
+from src.user_db import user_db
 from src.logger import logging
 import sys
 
@@ -43,8 +46,121 @@ app = Flask(__name__,
             static_folder='frontend/assets',
             template_folder='frontend')
 
+# Configure Flask session for authentication
+app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
+app.config['SESSION_TYPE'] = 'filesystem'
+app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
+app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh session on each request
+Session(app)
+
 # Enable CORS
 CORS(app)
+
+# ========================
+# AUTHENTICATION MIDDLEWARE
+# ========================
+
+def login_required(f):
+    """Decorator to protect routes - redirect to login if not authenticated"""
+    def decorated_function(*args, **kwargs):
+        if 'user_id' not in session:
+            return jsonify({'error': 'Unauthorized'}), 401
+        return f(*args, **kwargs)
+    decorated_function.__name__ = f.__name__
+    return decorated_function
+
+# ========================
+# OAUTH ROUTES
+# ========================
+
+@app.route('/login')
+def login_page():
+    """Serve login page"""
+    return render_template('login.html')
+
+@app.route('/api/auth/login', methods=['GET'])
+def get_auth_url():
+    """Get Google OAuth authorization URL"""
+    try:
+        auth_url = oauth.get_authorization_url()
+        return jsonify({'auth_url': auth_url})
+    except Exception as e:
+        logging.error(f"❌ Error getting auth URL: {str(e)}")
+        return jsonify({'error': 'Failed to get authorization URL'}), 500
+
+@app.route('/api/auth/callback', methods=['GET'])
+def oauth_callback():
+    """Handle OAuth callback from Google"""
+    try:
+        # Get authorization code from query parameters
+        code = request.args.get('code')
+        error = request.args.get('error')
+        
+        if error:
+            logging.warning(f"⚠️ OAuth error: {error}")
+            return redirect(f'/login?error={error}')
+        
+        if not code:
+            logging.error("❌ No authorization code received")
+            return redirect('/login?error=no_code')
+        
+        # Exchange code for token and get user info
+        success, user, error_msg = oauth.handle_oauth_callback(code)
+        
+        if not success:
+            logging.error(f"❌ OAuth callback failed: {error_msg}")
+            return redirect(f'/login?error={error_msg}')
+        
+        # Create session
+        session.permanent = True  # Make session persistent
+        session['user_id'] = user['id']
+        session['user_email'] = user['email']
+        session['user_name'] = user['name']
+        session['user_picture'] = user['picture']
+        
+        logging.info(f"✅ User {user['email']} logged in successfully")
+        
+        # Redirect to home page
+        return redirect('/')
+    
+    except Exception as e:
+        logging.error(f"❌ OAuth callback error: {str(e)}")
+        return redirect(f'/login?error=callback_failed')
+
+@app.route('/api/auth/logout', methods=['POST'])
+def logout():
+    """Logout user and clear session"""
+    try:
+        user_email = session.get('user_email', 'Unknown')
+        session.clear()
+        logging.info(f"✅ User {user_email} logged out")
+        return jsonify({'success': True, 'message': 'Logged out successfully'})
+    except Exception as e:
+        logging.error(f"❌ Logout error: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@app.route('/api/auth/user', methods=['GET'])
+def get_current_user():
+    """Get current logged-in user info"""
+    if 'user_id' not in session:
+        return jsonify({'authenticated': False})
+    
+    try:
+        user = user_db.get_user_by_id(session['user_id'])
+        return jsonify({
+            'authenticated': True,
+            'user': {
+                'id': user['id'],
+                'email': user['email'],
+                'name': user['name'],
+                'picture': user['picture'],
+                'created_at': user['created_at'],
+                'last_login': user['last_login']
+            }
+        })
+    except Exception as e:
+        logging.error(f"❌ Error getting user info: {str(e)}")
+        return jsonify({'authenticated': False})
 
 # ========================
 # HEALTH CHECK ENDPOINT
@@ -81,8 +197,11 @@ def health_check():
 
 @app.route('/')
 def index():
-    """Serve main page"""
+    """Serve main page - requires authentication"""
     try:
+        # Check if user is authenticated
+        if 'user_id' not in session:
+            return redirect('/login')
         return render_template('index.html')
     except Exception as e:
         logging.error(f"Error loading index.html: {str(e)}")
@@ -90,8 +209,11 @@ def index():
 
 @app.route('/dashboard')
 def dashboard():
-    """Serve dashboard page"""
+    """Serve dashboard page - requires authentication"""
     try:
+        # Check if user is authenticated
+        if 'user_id' not in session:
+            return redirect('/login')
         return render_template('market-dashboard.html')
     except Exception as e:
         logging.error(f"Error loading market-dashboard.html: {str(e)}")
@@ -570,8 +692,14 @@ def get_summary():
     """Get overall market summary statistics"""
     try:
         days = request.args.get('days', 30, type=int)
+        location = request.args.get('location', '', type=str)
         
         jobs_df = load_recent_jobs(days=days)
+        
+        # Filter by location if provided
+        if location and location != 'All':
+            from src.analytics import filter_jobs_by_location
+            jobs_df = filter_jobs_by_location(jobs_df, location)
         
         if jobs_df.empty:
             return jsonify({'success': False, 'message': 'No data'})

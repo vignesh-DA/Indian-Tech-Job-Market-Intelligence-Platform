@@ -103,10 +103,18 @@ a:hover {
     opacity: 0.8;
 }
 
+.navbar-right {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-lg);
+}
+
 .navbar-menu {
     display: flex;
     list-style: none;
     gap: var(--spacing-xl);
+    margin: 0;
+    padding: 0;
 }
 
 .nav-link {

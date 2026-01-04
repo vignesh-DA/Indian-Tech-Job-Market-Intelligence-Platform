@@ -8,6 +8,32 @@ from datetime import datetime, timedelta
 import sys
 from src.logger import logging
 from src.exception import CustomException
+from src.data_loader import normalize_location
+
+
+def filter_jobs_by_location(jobs_df, location):
+    """
+    Filter jobs by normalized location
+    
+    Args:
+        jobs_df: DataFrame with job data
+        location: Location to filter by (normalized city name)
+        
+    Returns:
+        Filtered DataFrame
+    """
+    if not location or location == 'All':
+        return jobs_df
+    
+    filtered = []
+    location_lower = location.lower()
+    
+    for idx, row in jobs_df.iterrows():
+        normalized = normalize_location(row.get('location', '')).lower()
+        if normalized == location_lower or normalized == 'remote':
+            filtered.append(idx)
+    
+    return jobs_df.loc[filtered].copy() if filtered else pd.DataFrame()
 
 
 def calculate_salary_trends(jobs_df, group_by='location'):

@@ -204,6 +204,71 @@ def get_unique_locations(jobs_df):
         return []
 
 
+def normalize_location(location_str):
+    """
+    Normalize granular locations to parent cities
+    
+    Maps specific areas/streets to their parent city names
+    E.g., "Powai Iit, Mumbai" -> "Mumbai"
+    
+    Args:
+        location_str: Raw location string from CSV
+        
+    Returns:
+        Normalized city name
+    """
+    if pd.isna(location_str):
+        return 'Unknown'
+    
+    location = str(location_str).strip().lower()
+    
+    # City mapping - handles common cases
+    city_keywords = {
+        'mumbai': ['mumbai', 'powai', 'goregaon', 'andheri', 'charni', 'prabhadevi', 'trombay', 'nana peth'],
+        'bangalore': ['bangalore', 'madivala', 'muthusandra', 'banasavangee'],
+        'hyderabad': ['hyderabad', 'kyasaram'],
+        'pune': ['pune', 'baner', 'vadgaon', 'hadapsar', 'warje', 'nana peth'],
+        'chennai': ['chennai', 'injambakkam', 'chintadripet', 'ttti taramani', 'egmore', 'gopalapuram'],
+        'delhi': ['delhi', 'new delhi', 'north delhi', 'south delhi', 'chandni chowk', 'timarpur', 'jeevan park', 'lajpat nagar', 'sarita vihar', 'sansad marg'],
+        'remote': ['remote']
+    }
+    
+    for city, keywords in city_keywords.items():
+        for keyword in keywords:
+            if keyword in location:
+                return city.title()
+    
+    # Default: return first major city mentioned or 'Other'
+    if 'india' in location:
+        return 'India'
+    
+    return 'Other'
+
+
+def get_normalized_locations(jobs_df):
+    """
+    Get normalized unique locations from jobs dataframe
+    
+    Args:
+        jobs_df: DataFrame with job data
+        
+    Returns:
+        List of normalized unique locations
+    """
+    try:
+        if jobs_df.empty or 'location' not in jobs_df.columns:
+            return []
+        
+        normalized_locs = jobs_df['location'].apply(normalize_location).unique().tolist()
+        # Remove 'Other', 'Unknown', and 'India' from recommendations
+        normalized_locs = [loc for loc in normalized_locs if loc not in ['Other', 'Unknown', 'India']]
+        return sorted(normalized_locs)
+        
+    except Exception as e:
+        logging.error(f"Error normalizing locations: {str(e)}")
+        return []
+
+
 def get_unique_companies(jobs_df):
     """
     Get unique company names
