@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: indian-tech-job-market-intelligence
+    env: python
+    region: oregon
+    plan: free
+    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
+    startCommand: gunicorn --workers 2 --threads 2 --worker-class gthread --bind 0.0.0.0:$PORT server:app
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.8
