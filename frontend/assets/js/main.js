@@ -11,6 +11,9 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // App Initialization
 async function initializeApp() {
+    // Check authentication and load user profile
+    await checkAuth();
+    
     // Load stats
     await loadStats();
     
@@ -191,6 +194,81 @@ async function loadSavedJobsPage() {
     console.log('💾 Loading saved jobs page');
     
     // This will be implemented when we create saved-jobs.html
+}
+
+// Check Authentication Status
+async function checkAuth() {
+    try {
+        const response = await fetch(`${API_BASE_URL}/api/auth/user`);
+        const data = await response.json();
+        
+        if (data.authenticated) {
+            // User is logged in - update profile picture
+            const user = data.user;
+            
+            // Update navbar profile picture
+            const profileImg = document.getElementById('profileImg');
+            if (profileImg && user.picture) {
+                profileImg.src = user.picture;
+            }
+            
+            // Update dropdown profile picture
+            const dropdownProfilePic = document.getElementById('dropdownProfilePic');
+            if (dropdownProfilePic && user.picture) {
+                dropdownProfilePic.src = user.picture;
+            }
+            
+            // Update user info in dropdown
+            const dropdownUserName = document.getElementById('dropdownUserName');
+            if (dropdownUserName) {
+                dropdownUserName.textContent = user.name || 'User';
+            }
+            
+            const dropdownUserEmail = document.getElementById('dropdownUserEmail');
+            if (dropdownUserEmail) {
+                dropdownUserEmail.textContent = user.email || '';
+            }
+            
+            // Setup profile dropdown toggle
+            const profileBtn = document.getElementById('profileBtn');
+            const profileDropdown = document.getElementById('profileDropdown');
+            
+            if (profileBtn && profileDropdown) {
+                profileBtn.addEventListener('click', () => {
+                    profileDropdown.classList.toggle('show');
+                });
+                
+                // Close dropdown when clicking outside
+                document.addEventListener('click', (e) => {
+                    if (!profileDropdown.contains(e.target) && !profileBtn.contains(e.target)) {
+                        profileDropdown.classList.remove('show');
+                    }
+                });
+            }
+            
+            // Setup logout button
+            const logoutBtn = document.getElementById('logoutBtn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        await fetch(`${API_BASE_URL}/api/auth/logout`, { method: 'POST' });
+                        window.location.href = '/login';
+                    } catch (error) {
+                        console.error('Logout failed:', error);
+                    }
+                });
+            }
+        } else {
+            // User not logged in - redirect to login
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+        }
+    } catch (error) {
+        console.error('Auth check failed:', error);
+        // Don't redirect on auth check failure (could be offline)
+    }
 }
 
 // Export functions for use in other modules
