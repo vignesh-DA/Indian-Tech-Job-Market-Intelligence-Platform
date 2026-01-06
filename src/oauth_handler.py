@@ -21,7 +21,10 @@ class GoogleOAuth:
         """Initialize OAuth with credentials from .env"""
         self.client_id = os.getenv('GOOGLE_OAUTH_CLIENT_ID')
         self.client_secret = os.getenv('GOOGLE_OAUTH_CLIENT_SECRET')
-        self.redirect_uri = os.getenv('GOOGLE_OAUTH_REDIRECT_URI', 'http://localhost:5000/api/auth/callback')
+        
+        # Detect environment and set appropriate redirect URI
+        self.environment = self._detect_environment()
+        self.redirect_uri = self._get_redirect_uri()
         
         # Google OAuth endpoints
         self.auth_uri = 'https://accounts.google.com/o/oauth2/v2/auth'
@@ -32,8 +35,34 @@ class GoogleOAuth:
         self.profile_pics_dir = 'data/profile_pics'
         os.makedirs(self.profile_pics_dir, exist_ok=True)
         
+        logging.info(f"🔐 OAuth initialized for {self.environment} environment")
+        logging.info(f"📍 Using redirect URI: {self.redirect_uri}")
+        
         if not self.client_id or not self.client_secret:
             logging.warning("⚠️ Google OAuth credentials not configured in .env")
+    
+    def _detect_environment(self) -> str:
+        """
+        Detect if running locally or on Render (production)
+        Returns: 'production' or 'local'
+        """
+        # Check if running on Render
+        if os.getenv('RENDER') == 'true':
+            return 'production'
+        # Check Flask environment
+        if os.getenv('FLASK_ENV') == 'production':
+            return 'production'
+        return 'local'
+    
+    def _get_redirect_uri(self) -> str:
+        """
+        Get the correct redirect URI based on environment
+        Returns: Full redirect URI for current environment
+        """
+        if self.environment == 'production':
+            return 'https://indian-tech-job-market-intelligence.onrender.com/api/auth/callback'
+        else:
+            return 'http://localhost:5000/api/auth/callback'
     
     def get_authorization_url(self) -> str:
         """
@@ -66,11 +95,15 @@ class GoogleOAuth:
                 'redirect_uri': self.redirect_uri
             }
             
+            logging.info(f"📤 Exchanging code for token with redirect_uri: {self.redirect_uri}")
             response = requests.post(self.token_uri, data=data)
             response.raise_for_status()
             
             return response.json()
         
+        except requests.exceptions.HTTPError as e:
+            logging.error(f"❌ Token exchange failed (HTTP {e.response.status_code}): {e.response.text}")
+            return None
         except Exception as e:
             logging.error(f"❌ Token exchange failed: {str(e)}")
             return None
