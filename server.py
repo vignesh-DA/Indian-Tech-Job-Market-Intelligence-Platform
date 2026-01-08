@@ -77,6 +77,18 @@ def login_required(f):
     decorated_function.__name__ = f.__name__
     return decorated_function
 
+# Helper function to load all jobs without date filtering
+def load_all_jobs():
+    """Load all jobs from database without date filtering"""
+    from src.database import Job, SessionLocal
+    session = SessionLocal()
+    query = session.query(Job).order_by(Job.posted_date.desc())
+    jobs = query.all()
+    data = [job.to_dict() for job in jobs]
+    jobs_df = pd.DataFrame(data)
+    session.close()
+    return jobs_df
+
 # ========================
 # OAUTH ROUTES
 # ========================
@@ -601,11 +613,11 @@ def get_analytics():
 def get_salary_trends():
     """Get salary trends by location or role"""
     try:
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)
         group_by = request.args.get('group_by', 'location')
         location = request.args.get('location', '', type=str)
         
-        jobs_df = load_recent_jobs(days=days)
+        jobs_df = load_recent_jobs(days=days) if days else load_all_jobs()
         
         # Filter by location if provided
         if location and location != 'All':
@@ -638,11 +650,11 @@ def get_salary_trends():
 def get_skills():
     """Get top in-demand skills"""
     try:
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)
         top_n = request.args.get('top_n', 15, type=int)
         location = request.args.get('location', '', type=str)
         
-        jobs_df = load_recent_jobs(days=days)
+        jobs_df = load_recent_jobs(days=days) if days else load_all_jobs()
         
         # Filter by location if provided
         if location and location != 'All':
@@ -672,11 +684,11 @@ def get_skills():
 def get_roles():
     """Get job role distribution"""
     try:
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)
         top_n = request.args.get('top_n', 10, type=int)
         location = request.args.get('location', '', type=str)
         
-        jobs_df = load_recent_jobs(days=days)
+        jobs_df = load_recent_jobs(days=days) if days else load_all_jobs()
         
         # Filter by location if provided
         if location and location != 'All':
@@ -706,10 +718,10 @@ def get_roles():
 def get_exp_dist():
     """Get experience level distribution"""
     try:
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)
         location = request.args.get('location', '', type=str)
         
-        jobs_df = load_recent_jobs(days=days)
+        jobs_df = load_recent_jobs(days=days) if days else load_all_jobs()
         
         # Filter by location if provided
         if location and location != 'All':
@@ -739,10 +751,10 @@ def get_exp_dist():
 def get_location_stats():
     """Get job statistics by location"""
     try:
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)
         location = request.args.get('location', '', type=str)
         
-        jobs_df = load_recent_jobs(days=days)
+        jobs_df = load_recent_jobs(days=days) if days else load_all_jobs()
         
         # Filter by location if provided
         if location and location != 'All':
@@ -774,10 +786,10 @@ def get_location_stats():
 def get_trends():
     """Get job posting trends over time"""
     try:
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)
         location = request.args.get('location', '', type=str)
         
-        jobs_df = load_recent_jobs(days=days)
+        jobs_df = load_recent_jobs(days=days) if days else load_all_jobs()
         
         # Filter by location if provided
         if location and location != 'All':
@@ -1080,9 +1092,14 @@ def chat():
         # Get current job recommendations for context (skip if error)
         recommendations = []
         try:
-            jobs = load_recent_jobs()
-            if not jobs.empty:
-                recommendations = jobs.to_dict('records')[:5]
+            # Load sample jobs for chatbot context (limit to avoid slowdown)
+            from src.database import Job, SessionLocal
+            session = SessionLocal()
+            jobs_query = session.query(Job).limit(100)
+            jobs_list = jobs_query.all()
+            session.close()
+            if jobs_list:
+                recommendations = [job.to_dict() for job in jobs_list[:5]]
         except Exception as rec_error:
             logging.warning(f"Could not load recommendations: {str(rec_error)}")
             # Continue without recommendations
