@@ -365,10 +365,20 @@ def get_jobs():
         limit = request.args.get('limit', 20, type=int)
         location = request.args.get('location', None)
         company = request.args.get('company', None)
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)  # None = load all jobs
         
-        # Load jobs
-        jobs_df = load_recent_jobs(days=days)
+        # Load jobs - if days not specified, load ALL jobs
+        if days:
+            jobs_df = load_recent_jobs(days=days)
+        else:
+            # Load all jobs without date filtering
+            from src.database import Job, SessionLocal
+            session = SessionLocal()
+            query = session.query(Job).order_by(Job.posted_date.desc())
+            jobs = query.all()
+            data = [job.to_dict() for job in jobs]
+            jobs_df = pd.DataFrame(data)
+            session.close()
         
         if jobs_df.empty:
             return jsonify({

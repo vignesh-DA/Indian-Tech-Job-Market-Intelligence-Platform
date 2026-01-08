@@ -204,12 +204,12 @@ def save_jobs_to_db(jobs_df):
     finally:
         session.close()
 
-def load_jobs_from_db(days=30, location=None, limit=10000):
+def load_jobs_from_db(days=None, location=None, limit=10000):
     """
     Load jobs from PostgreSQL database
     
     Args:
-        days: Number of days to look back
+        days: Number of days to look back (None = load all jobs)
         location: Filter by location (optional)
         limit: Maximum number of jobs to return
         
@@ -220,11 +220,13 @@ def load_jobs_from_db(days=30, location=None, limit=10000):
     try:
         from datetime import timedelta
         
-        # Calculate cutoff date
-        cutoff_date = datetime.utcnow() - timedelta(days=days)
-        
         # Build query
-        query = session.query(Job).filter(Job.posted_date >= cutoff_date)
+        query = session.query(Job)
+        
+        # Apply date filter only if days is specified
+        if days:
+            cutoff_date = datetime.utcnow() - timedelta(days=days)
+            query = query.filter(Job.posted_date >= cutoff_date)
         
         # Apply location filter if provided
         if location:
@@ -240,7 +242,8 @@ def load_jobs_from_db(days=30, location=None, limit=10000):
         data = [job.to_dict() for job in jobs]
         df = pd.DataFrame(data)
         
-        logging.info(f"Loaded {len(df)} jobs from PostgreSQL (last {days} days)")
+        days_text = f"(last {days} days)" if days else "(all)"
+        logging.info(f"Loaded {len(df)} jobs from PostgreSQL {days_text}")
         
         return df
         
