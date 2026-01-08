@@ -212,8 +212,9 @@ def get_posting_trends(jobs_df, days=None):
             cutoff_date = pd.Timestamp(datetime.now() - timedelta(days=days)).tz_localize('UTC')
             recent_jobs = jobs_df[jobs_df['posted_date'] >= cutoff_date].copy()
         else:
-            # Use all jobs
-            recent_jobs = jobs_df.copy()
+            # Use last 90 days for "All Jobs" view to keep chart readable
+            cutoff_date = pd.Timestamp(datetime.now() - timedelta(days=90)).tz_localize('UTC')
+            recent_jobs = jobs_df[jobs_df['posted_date'] >= cutoff_date].copy()
         
         if recent_jobs.empty:
             return pd.DataFrame()
@@ -225,13 +226,8 @@ def get_posting_trends(jobs_df, days=None):
         daily_counts = recent_jobs.groupby('date').size().reset_index(name='count')
         daily_counts['date'] = pd.to_datetime(daily_counts['date'])
         
-        # Determine date range
-        if days is not None:
-            # Use cutoff date for specific days range
-            start_date = cutoff_date.date()
-        else:
-            # Use earliest job posting date for all jobs
-            start_date = daily_counts['date'].min().date() if not daily_counts.empty else datetime.now().date()
+        # Determine date range - always use cutoff_date now
+        start_date = cutoff_date.date()
         
         # Fill missing dates with 0
         date_range = pd.date_range(
