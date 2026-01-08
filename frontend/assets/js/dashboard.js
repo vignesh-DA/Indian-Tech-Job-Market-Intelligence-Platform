@@ -1,6 +1,19 @@
 /* Dashboard Page Logic */
 
+// Detect dark mode
+function isDarkMode() {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+}
 
+// Get chart colors based on theme
+function getChartColors() {
+    const dark = isDarkMode();
+    return {
+        gridColor: dark ? 'rgba(255, 255, 255, 0.1)' : 'rgba(0, 0, 0, 0.05)',
+        textColor: dark ? '#d1d5db' : '#6b7280',
+        borderColor: dark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.1)',
+    };
+}
 
 // Chart instances
 let companiesChart = null;
@@ -296,12 +309,18 @@ function renderCompaniesChart(companies) {
                 x: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(0, 0, 0, 0.05)',
+                        color: getChartColors().gridColor,
+                    },
+                    ticks: {
+                        color: getChartColors().textColor,
                     },
                 },
                 y: {
                     grid: {
                         display: false,
+                    },
+                    ticks: {
+                        color: getChartColors().textColor,
                     },
                 },
             },
@@ -502,7 +521,7 @@ function renderSalaryTrendsChart(salaryTrends) {
             scales: {
                 x: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    grid: { color: getChartColors().gridColor },
                 },
                 y: {
                     grid: { display: false },
@@ -547,7 +566,7 @@ function renderSkillsChart(skills) {
             scales: {
                 x: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    grid: { color: getChartColors().gridColor },
                 },
                 y: {
                     grid: { display: false },
@@ -595,7 +614,12 @@ function renderTrendsChart(trends) {
             responsive: true,
             maintainAspectRatio: true,
             plugins: {
-                legend: { display: true },
+                legend: { 
+                    display: true,
+                    labels: {
+                        color: getChartColors().textColor,
+                    }
+                },
                 tooltip: {
                     callbacks: {
                         label: function(context) {
@@ -608,13 +632,17 @@ function renderTrendsChart(trends) {
                 y: {
                     beginAtZero: true,
                     suggestedMax: maxCount > 100 ? Math.ceil(maxCount * 1.1) : 100,
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    grid: { color: getChartColors().gridColor },
                     ticks: {
-                        precision: 0
+                        precision: 0,
+                        color: getChartColors().textColor,
                     }
                 },
                 x: {
-                    grid: { display: false }
+                    grid: { display: false },
+                    ticks: {
+                        color: getChartColors().textColor,
+                    }
                 }
             },
         },
@@ -696,9 +724,10 @@ function renderRolesChart(roles) {
             scales: {
                 y: {
                     beginAtZero: true,
-                    grid: { color: 'rgba(0, 0, 0, 0.05)' },
+                    grid: { color: getChartColors().gridColor },
                 },
             },
         },
     });
 }
+
