@@ -140,7 +140,11 @@ async function loadDashboardData() {
             });
             renderCompaniesChart(companyCounts);
             renderTopCompaniesFromJobs(jobs);
-            renderTopLocationsFromJobs(jobs);
+        }
+
+        // Use real location stats from API (not sampled jobs)
+        if (locationStats && locationStats.success && locationStats.data) {
+            renderTopLocationsFromAPI(locationStats.data);
         }
 
         // Update salary analytics from salary trends
@@ -423,6 +427,54 @@ function renderTopCompaniesFromJobs(jobs) {
 }
 
 // Render Top Locations from Jobs Data
+// Render Top Locations from API (real database data)
+function renderTopLocationsFromAPI(locationData) {
+    const container = DOM.byId('topLocationsContainer');
+    if (!container) return;
+    
+    container.innerHTML = '';
+
+    if (!locationData || locationData.length === 0) {
+        container.innerHTML = '<p style="color: var(--text-secondary);">No location data available</p>';
+        return;
+    }
+
+    const topLocations = locationData.slice(0, 8);
+    const list = DOM.create('div', { style: 'display: flex; flex-direction: column; gap: var(--spacing-md);' });
+
+    topLocations.forEach((loc) => {
+        const item = DOM.create('div', {
+            style: 'display: flex; justify-content: space-between; align-items: center; padding: var(--spacing-md); border-bottom: 1px solid var(--border-light);'
+        });
+
+        const locationName = DOM.create('span', {
+            style: 'font-weight: var(--font-medium);'
+        }, loc.location);
+
+        const stats = DOM.create('div', {
+            style: 'display: flex; gap: var(--spacing-lg); align-items: center;'
+        });
+
+        const jobCount = DOM.create('span', {
+            style: 'color: var(--primary-color); font-weight: var(--font-bold); font-size: var(--text-lg);'
+        }, Math.round(loc.job_count).toString());
+
+        const bar = DOM.create('div', {
+            style: `width: 4px; height: 24px; background: linear-gradient(to bottom, var(--primary-color), var(--secondary-color)); border-radius: 2px; opacity: ${Math.min(loc.job_count / 1500, 1)};`
+        });
+
+        stats.appendChild(jobCount);
+        stats.appendChild(bar);
+
+        item.appendChild(locationName);
+        item.appendChild(stats);
+        list.appendChild(item);
+    });
+
+    container.appendChild(list);
+}
+
+// Render Top Locations from Jobs Data (old - kept for backup)
 function renderTopLocationsFromJobs(jobs) {
     const container = DOM.byId('topLocationsContainer');
     if (!container) return;
