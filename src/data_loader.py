@@ -15,12 +15,12 @@ _job_cache = {}
 _cache_timestamp = None
 CACHE_TTL = 3600  # 1 hour
 
-def load_recent_jobs(days=30):
+def load_recent_jobs(days=None):
     """
     Load jobs from PostgreSQL database with CSV fallback
     
     Args:
-        days: Number of days to look back
+        days: Number of days to look back (None = load all jobs)
         
     Returns:
         DataFrame with recent jobs

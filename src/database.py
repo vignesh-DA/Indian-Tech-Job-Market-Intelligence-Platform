@@ -128,12 +128,19 @@ def save_jobs_to_db(jobs_df):
     
     session = SessionLocal()
     try:
-        # Delete old jobs (keep only last 30 days of data)
+        logging.info("=" * 70)
+        logging.info("💾 DATABASE SAVE OPERATION STARTED")
+        logging.info("=" * 70)
+        logging.info(f"📊 Total jobs to save: {len(jobs_df)}")
+        
+        # Delete old jobs (keep 90 days for dashboard analytics)
         from datetime import timedelta
-        cutoff_date = datetime.utcnow() - timedelta(days=30)
+        cutoff_date = datetime.utcnow() - timedelta(days=90)
         deleted_count = session.query(Job).filter(Job.posted_date < cutoff_date).delete()
         if deleted_count > 0:
-            logging.info(f"Deleted {deleted_count} old jobs (>30 days)")
+            logging.info(f"🗑️ Deleted {deleted_count} old jobs (>90 days)")
+        else:
+            logging.info("✓ No old jobs to delete (all within 90 days)")
         
         # Bulk insert - much faster than individual inserts
         jobs_to_insert = []
@@ -189,10 +196,12 @@ def save_jobs_to_db(jobs_df):
         
         total_count = session.query(Job).count()
         logging.info("=" * 70)
-        logging.info("SAVED JOBS TO POSTGRESQL")
+        logging.info("✅ DATABASE SAVE COMPLETED")
         logging.info("=" * 70)
-        logging.info(f"   Processed: {len(jobs_to_insert)} jobs")
-        logging.info(f"   Total in database: {total_count}")
+        logging.info(f"✓ New jobs added: {len(jobs_to_insert)}")
+        logging.info(f"✓ Total jobs in database: {total_count}")
+        logging.info(f"✓ Database: PostgreSQL (Render)")
+        logging.info(f"✓ Retention policy: Last 90 days")
         logging.info("=" * 70)
         
         return len(jobs_to_insert)

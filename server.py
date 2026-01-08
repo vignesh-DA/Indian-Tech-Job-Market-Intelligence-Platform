@@ -472,10 +472,12 @@ def get_job_recommendations():
             'preferred_locations': data.get('preferred_locations', [])
         }
         
-        # Load ALL jobs (not just last 30 days)
+        # Load fresh jobs from last 30 days for recommendations
         from src.database import Job, SessionLocal
+        from datetime import timedelta
         session = SessionLocal()
-        query = session.query(Job)
+        cutoff_date = datetime.utcnow() - timedelta(days=30)
+        query = session.query(Job).filter(Job.posted_date >= cutoff_date)
         jobs = query.all()
         data_jobs = [job.to_dict() for job in jobs]
         jobs_df = pd.DataFrame(data_jobs)
@@ -868,7 +870,8 @@ def background_job_fetch(app_id, app_key):
     global job_fetch_status
     
     try:
-        job_fetch_status['is_running'] = True
+        # Status is already set by fetch_jobs_api, just update progress
+        time.sleep(0.5)  # Small delay to ensure API response is sent first
         job_fetch_status['progress'] = 5
         job_fetch_status['message'] = '🚀 Starting job scraper... Preparing database connection'
         logging.info("=" * 70)
@@ -920,9 +923,17 @@ def background_job_fetch(app_id, app_key):
             logging.info("🔄 TRAINING NEW RECOMMENDATION MODEL")
             logging.info("=" * 70)
             
-            # Step 3: Train new model
+            # Filter to only last 30 days for fresh recommendations
+            from datetime import timedelta
+            cutoff_date = pd.Timestamp(datetime.now() - timedelta(days=30)).tz_localize('UTC')
+            fresh_jobs = result[result['posted_date'] >= cutoff_date].copy()
+            
+            logging.info(f"Total scraped jobs: {len(result):,}")
+            logging.info(f"Fresh jobs (≤30 days): {len(fresh_jobs):,}")
+            
+            # Step 3: Train new model on fresh jobs only
             recommendation_engine = JobRecommendationEngine()
-            recommendation_engine.train(result)
+            recommendation_engine.train(fresh_jobs if not fresh_jobs.empty else result)
             
             job_fetch_status['progress'] = 85
             job_fetch_status['message'] = '💽 Saving trained ML model...'
@@ -931,11 +942,12 @@ def background_job_fetch(app_id, app_key):
             recommendation_engine.save_model(pickle_file)
             
             model_size = os.path.getsize(pickle_file) / (1024*1024)
-            logging.info(f"NEW MODEL SAVED: {model_size:.2f} MB, Trained on {len(result)} jobs")
+            fresh_count = len(fresh_jobs) if not fresh_jobs.empty else len(result)
+            logging.info(f"NEW MODEL SAVED: {model_size:.2f} MB, Trained on {fresh_count} fresh jobs (≤30 days)")
             logging.info("=" * 70)
             
             job_fetch_status['progress'] = 100
-            job_fetch_status['message'] = f'✅ Success! {len(result):,} jobs scraped, saved to database, and ML model trained!'
+            job_fetch_status['message'] = f'✅ Success! {len(result):,} jobs saved (90-day analytics ready). AI trained on {fresh_count:,} fresh jobs (≤30 days)!'
             job_fetch_status['is_running'] = False
             job_fetch_status['last_completed'] = datetime.now().isoformat()
         else:
@@ -973,13 +985,17 @@ def fetch_jobs_api():
                 'message': 'API credentials not configured'
             }), 400
         
+        # Update status BEFORE starting thread to avoid "Not started" flash
+        job_fetch_status['is_running'] = True
+        job_fetch_status['progress'] = 0
+        job_fetch_status['message'] = '⏳ Initializing scraper... Starting background process'
+        job_fetch_status['last_started'] = datetime.now().isoformat()
+        
         # Start background thread
         import threading
         thread = threading.Thread(target=background_job_fetch, args=(app_id, app_key))
         thread.daemon = True
         thread.start()
-        
-        job_fetch_status['last_started'] = datetime.now().isoformat()
         
         logging.info("🚀 Job fetch started in background")
         
