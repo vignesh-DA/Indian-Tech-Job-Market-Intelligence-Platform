@@ -189,13 +189,13 @@ def calculate_location_stats(jobs_df):
         return pd.DataFrame()
 
 
-def get_posting_trends(jobs_df, days=30):
+def get_posting_trends(jobs_df, days=None):
     """
     Get job posting trends over time
     
     Args:
         jobs_df: DataFrame with job data
-        days: Number of days to analyze
+        days: Number of days to analyze (None = all time)
         
     Returns:
         DataFrame with daily job counts
@@ -207,9 +207,13 @@ def get_posting_trends(jobs_df, days=30):
         # Ensure posted_date is datetime with UTC timezone
         jobs_df['posted_date'] = pd.to_datetime(jobs_df['posted_date'], errors='coerce', utc=True)
         
-        # Filter recent posts (make cutoff_date timezone-aware)
-        cutoff_date = pd.Timestamp(datetime.now() - timedelta(days=days)).tz_localize('UTC')
-        recent_jobs = jobs_df[jobs_df['posted_date'] >= cutoff_date].copy()
+        # Filter recent posts if days specified
+        if days is not None:
+            cutoff_date = pd.Timestamp(datetime.now() - timedelta(days=days)).tz_localize('UTC')
+            recent_jobs = jobs_df[jobs_df['posted_date'] >= cutoff_date].copy()
+        else:
+            # Use all jobs
+            recent_jobs = jobs_df.copy()
         
         if recent_jobs.empty:
             return pd.DataFrame()
