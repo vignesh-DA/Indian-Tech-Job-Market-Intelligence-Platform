@@ -260,7 +260,14 @@ def serve_profile_pic(filename):
 def get_stats():
     """Get market statistics"""
     try:
-        jobs_df = load_recent_jobs(days=30)
+        # Load ALL jobs (not just last 30 days)
+        from src.database import Job, SessionLocal
+        session = SessionLocal()
+        query = session.query(Job)
+        jobs = query.all()
+        data = [job.to_dict() for job in jobs]
+        jobs_df = pd.DataFrame(data)
+        session.close()
         
         if jobs_df.empty:
             return jsonify({
@@ -308,7 +315,14 @@ def get_stats():
 def get_unique_roles():
     """Get unique job roles from the dataset"""
     try:
-        jobs_df = load_recent_jobs(days=30)
+        # Load ALL jobs (not just last 30 days)
+        from src.database import Job, SessionLocal
+        session = SessionLocal()
+        query = session.query(Job)
+        jobs = query.all()
+        data = [job.to_dict() for job in jobs]
+        jobs_df = pd.DataFrame(data)
+        session.close()
         
         if jobs_df.empty:
             return jsonify({
@@ -446,8 +460,14 @@ def get_job_recommendations():
             'preferred_locations': data.get('preferred_locations', [])
         }
         
-        # Load recent jobs and get recommendations
-        jobs_df = load_recent_jobs(days=30)
+        # Load ALL jobs (not just last 30 days)
+        from src.database import Job, SessionLocal
+        session = SessionLocal()
+        query = session.query(Job)
+        jobs = query.all()
+        data_jobs = [job.to_dict() for job in jobs]
+        jobs_df = pd.DataFrame(data_jobs)
+        session.close()
         
         if jobs_df.empty:
             return jsonify({
