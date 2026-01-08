@@ -810,10 +810,20 @@ def get_trends():
 def get_summary():
     """Get overall market summary statistics"""
     try:
-        days = request.args.get('days', 30, type=int)
+        days = request.args.get('days', None, type=int)
         location = request.args.get('location', '', type=str)
         
-        jobs_df = load_recent_jobs(days=days)
+        # Load ALL jobs (not just 30 days) unless days parameter specified
+        if days:
+            jobs_df = load_recent_jobs(days=days)
+        else:
+            from src.database import Job, SessionLocal
+            session = SessionLocal()
+            query = session.query(Job)
+            jobs = query.all()
+            data_jobs = [job.to_dict() for job in jobs]
+            jobs_df = pd.DataFrame(data_jobs)
+            session.close()
         
         # Filter by location if provided
         if location and location != 'All':

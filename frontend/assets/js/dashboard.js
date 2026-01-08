@@ -53,7 +53,11 @@ function setupDashboardListeners() {
 async function loadDashboardData() {
     try {
         const days = DOM.byId('daysFilter').value;
-        console.log('Loading dashboard data for', days, 'days');
+        console.log('Loading dashboard data for', days || 'all', 'days');
+
+        // Build query parameter - only add days if it has a value
+        const daysParam = days ? `days=${days}` : '';
+        const daysQuery = days ? { days } : {};
 
         // Fetch all analytics data in parallel
         const [
@@ -66,12 +70,15 @@ async function loadDashboardData() {
             experienceDistribution,
             postingTrends
         ] = await Promise.all([
-            API.getJobs(1, 1000, { days }),
-            fetch(`${API_BASE_URL}/api/summary-stats?days=${days}`).then(r => r.json()),
-            fetch(`${API_BASE_URL}/api/top-skills?days=${days}&top_n=15`).then(r => r.json()),
-            fetch(`${API_BASE_URL}/api/salary-trends?days=${days}&group_by=location`).then(r => r.json()),
-            fetch(`${API_BASE_URL}/api/location-stats?days=${days}`).then(r => r.json()),
-            fetch(`${API_BASE_URL}/api/role-distribution?days=${days}&top_n=10`).then(r => r.json()),
+            API.getJobs(1, 1000, daysQuery),
+            fetch(`${API_BASE_URL}/api/summary-stats${daysParam ? '?' + daysParam : ''}`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/top-skills?${daysParam}${daysParam ? '&' : ''}top_n=15`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/salary-trends?${daysParam}${daysParam ? '&' : ''}group_by=location`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/location-stats${daysParam ? '?' + daysParam : ''}`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/role-distribution?${daysParam}${daysParam ? '&' : ''}top_n=10`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/experience-distribution${daysParam ? '?' + daysParam : ''}`).then(r => r.json()),
+            fetch(`${API_BASE_URL}/api/posting-trends${daysParam ? '?' + daysParam : ''}`).then(r => r.json())
+        ]);
             fetch(`${API_BASE_URL}/api/experience-distribution?days=${days}`).then(r => r.json()),
             fetch(`${API_BASE_URL}/api/posting-trends?days=${days}`).then(r => r.json())
         ]);
