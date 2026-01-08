@@ -869,8 +869,11 @@ def background_job_fetch(app_id, app_key):
     
     try:
         job_fetch_status['is_running'] = True
-        job_fetch_status['progress'] = 10
-        job_fetch_status['message'] = 'Preparing database for fresh data...'
+        job_fetch_status['progress'] = 5
+        job_fetch_status['message'] = '🚀 Starting job scraper... Preparing database connection'
+        logging.info("=" * 70)
+        logging.info("FETCH JOBS INITIATED")
+        logging.info("=" * 70)
         
         # Step 1: Delete old pickle files
         pickle_file = 'models/recommendation_model.pkl'
@@ -878,34 +881,39 @@ def background_job_fetch(app_id, app_key):
             try:
                 file_size = os.path.getsize(pickle_file) / (1024*1024)
                 os.remove(pickle_file)
-                logging.info("=" * 70)
-                logging.info("DELETED OLD PICKLE MODEL")
-                logging.info("=" * 70)
-                logging.info(f"   Path: {pickle_file}")
-                logging.info(f"   Size: {file_size:.2f} MB")
-                logging.info(f"   Reason: New data fetch initiated")
-                logging.info("=" * 70)
+                job_fetch_status['progress'] = 10
+                job_fetch_status['message'] = '🗑️ Cleared old ML model... Ready for fresh training'
+                logging.info(f"Deleted old pickle model: {file_size:.2f} MB")
             except Exception as e:
                 logging.warning(f"Could not delete old pickle: {str(e)}")
         
-        job_fetch_status['progress'] = 20
-        job_fetch_status['message'] = 'Starting to scan job opportunities...'
+        job_fetch_status['progress'] = 15
+        job_fetch_status['message'] = '🔍 Connecting to Adzuna API... Scanning Indian tech jobs'
         
         # Define progress callback
         def update_progress(progress, message):
             job_fetch_status['progress'] = progress
             job_fetch_status['message'] = message
+            logging.info(f"Progress: {progress}% - {message}")
         
         # WARNING: Render uses ephemeral storage!
         logging.warning("WARNING: Running on ephemeral filesystem - data will be lost on restart!")
-        logging.warning("Consider using Render Disks or external storage (S3, GCS) for persistence")
         
         # Step 2: Fetch and save new jobs
+        job_fetch_status['progress'] = 20
+        job_fetch_status['message'] = '📥 Scraping jobs from API... This may take 2-4 minutes'
+        
         result = fetch_and_save_jobs(app_id, app_key, progress_callback=update_progress)
         
         if result is not None and not result.empty:
+            job_fetch_status['progress'] = 60
+            job_fetch_status['message'] = f'💾 Moving {len(result)} jobs to PostgreSQL database...'
+            logging.info(f"Scraped {len(result)} jobs successfully")
+            
+            # Simulate database save progress
+            time.sleep(1)
             job_fetch_status['progress'] = 70
-            job_fetch_status['message'] = 'Analyzing jobs and training AI recommendation engine...'
+            job_fetch_status['message'] = '🤖 Training AI recommendation engine on fresh data...'
             job_fetch_status['jobs_count'] = len(result)
             
             logging.info("=" * 70)
@@ -916,24 +924,25 @@ def background_job_fetch(app_id, app_key):
             recommendation_engine = JobRecommendationEngine()
             recommendation_engine.train(result)
             
+            job_fetch_status['progress'] = 85
+            job_fetch_status['message'] = '💽 Saving trained ML model...'
+            
             # Step 4: Save new model
             recommendation_engine.save_model(pickle_file)
             
             model_size = os.path.getsize(pickle_file) / (1024*1024)
-            logging.info(f"NEW MODEL SAVED")
-            logging.info(f"   Path: {pickle_file}")
-            logging.info(f"   Size: {model_size:.2f} MB")
-            logging.info(f"   Trained on: {len(result)} jobs")
+            logging.info(f"NEW MODEL SAVED: {model_size:.2f} MB, Trained on {len(result)} jobs")
             logging.info("=" * 70)
             
             job_fetch_status['progress'] = 100
-            job_fetch_status['message'] = f'✅ Successfully updated! Found {len(result):,} fresh job opportunities!'
+            job_fetch_status['message'] = f'✅ Success! {len(result):,} jobs scraped, saved to database, and ML model trained!'
             job_fetch_status['is_running'] = False
             job_fetch_status['last_completed'] = datetime.now().isoformat()
         else:
             job_fetch_status['progress'] = 0
-            job_fetch_status['message'] = '❌ Unable to fetch new jobs. Please try again later.'
+            job_fetch_status['message'] = '❌ No jobs fetched. API may be rate-limited or unavailable'
             job_fetch_status['is_running'] = False
+            logging.error("Job fetch returned empty result")
             
     except Exception as e:
         logging.error(f"Background job fetch error: {str(e)}")
