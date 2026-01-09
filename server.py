@@ -1113,16 +1113,27 @@ def chat():
             }), 400
         
         logging.info(f"Chat request from {user_name}: {user_message[:100]}")
+        logging.debug(f"User profile: {user_profile}")
+        
+        # Ensure user_profile has required fields
+        if not user_profile:
+            user_profile = {}
+        if 'role' not in user_profile or not user_profile['role']:
+            user_profile['role'] = 'job seeker'
+        if 'experience' not in user_profile or not user_profile['experience']:
+            user_profile['experience'] = 'mid-level'
+        if 'location' not in user_profile or not user_profile['location']:
+            user_profile['location'] = 'India'
         
         # Get current job recommendations for context (skip if error)
         recommendations = []
         try:
             # Load sample jobs for chatbot context (limit to avoid slowdown)
             from src.database import Job, SessionLocal
-            session = SessionLocal()
-            jobs_query = session.query(Job).limit(100)
+            db_session = SessionLocal()
+            jobs_query = db_session.query(Job).limit(100)
             jobs_list = jobs_query.all()
-            session.close()
+            db_session.close()
             if jobs_list:
                 recommendations = [job.to_dict() for job in jobs_list[:5]]
         except Exception as rec_error:
@@ -1130,14 +1141,24 @@ def chat():
             # Continue without recommendations
         
         # Generate response using Google Gemini API (with OpenRouter fallback)
-        response = chatbot.generate_response(
-            user_message=user_message,
-            user_profile=user_profile,
-            conversation_history=conversation_history,
-            recommendations=recommendations,
-            use_gemini=GEMINI_AVAILABLE,
-            user_name=user_name
-        )
+        try:
+            response = chatbot.generate_response(
+                user_message=user_message,
+                user_profile=user_profile,
+                conversation_history=conversation_history,
+                recommendations=recommendations,
+                use_gemini=GEMINI_AVAILABLE,
+                user_name=user_name
+            )
+            logging.debug(f"Chatbot response: success={response.get('success')}, intent={response.get('intent')}")
+        except Exception as gen_error:
+            logging.error(f"Chatbot generation failed: {str(gen_error)}")
+            import traceback
+            logging.error(f"Traceback: {traceback.format_exc()}")
+            response = {
+                'success': False,
+                'message': f'Error generating response: {str(gen_error)}'
+            }
         
         if response['success']:
             logging.info(f"Chat response generated - Intent: {response['intent']}")

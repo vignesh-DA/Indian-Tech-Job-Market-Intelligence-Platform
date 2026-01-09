@@ -183,13 +183,21 @@ function getUserProfileContext() {
     const locationSelect = document.getElementById('locationSelect');
     const skillsInput = document.getElementById('skillsInput');
     const totalMatchesMetric = document.getElementById('totalMatchesMetric');
+    
+    // Try to load from localStorage (saved profile)
+    let savedProfile = {};
+    try {
+        savedProfile = JSON.parse(localStorage.getItem('userProfile')) || {};
+    } catch (e) {
+        // Ignore parse errors
+    }
 
     return {
-        role: roleSelect?.value || '',
-        experience: experienceSelect?.value || '',
-        location: locationSelect?.value || '',
-        skills: typeof userSkills !== 'undefined' ? userSkills : [],
-        total_matched_jobs: totalMatchesMetric?.textContent || '0'
+        role: roleSelect?.value || savedProfile.role || 'job seeker',
+        experience: experienceSelect?.value || savedProfile.experience || 'mid-level',
+        location: locationSelect?.value || savedProfile.location || 'India',
+        skills: (typeof userSkills !== 'undefined' ? userSkills : (savedProfile.skills || [])),
+        total_matched_jobs: totalMatchesMetric?.textContent || savedProfile.top_n || '10'
     };
 }
 
