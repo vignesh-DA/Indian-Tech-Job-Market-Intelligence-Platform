@@ -22,14 +22,25 @@ if DATABASE_URL and DATABASE_URL.startswith('postgres://'):
     DATABASE_URL = DATABASE_URL.replace('postgres://', 'postgresql://', 1)
 
 # Create engine with connection pooling
-engine = create_engine(
-    DATABASE_URL, 
-    echo=False,
-    pool_pre_ping=True,  # Verify connections are alive
-    pool_recycle=3600,   # Recycle connections every hour
-    pool_size=5,         # Connection pool size
-    max_overflow=10      # Max connections beyond pool_size
-)
+# Use different pool settings for SQLite vs PostgreSQL
+if DATABASE_URL.startswith('sqlite'):
+    # SQLite: single-file DB, no pool needed for local dev
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        connect_args={'check_same_thread': False},
+    )
+else:
+    # PostgreSQL: pool_size=20 + max_overflow=30 = 50 concurrent connections (supports 1000 users)
+    engine = create_engine(
+        DATABASE_URL,
+        echo=False,
+        pool_pre_ping=True,   # Verify connections are alive before using
+        pool_recycle=1800,    # Recycle connections every 30 minutes
+        pool_size=20,         # Base pool: 20 persistent connections
+        max_overflow=30,      # Burst pool: up to 50 total connections
+        pool_timeout=30,      # Wait up to 30s for a connection before error
+    )
 
 # Session factory
 SessionLocal = scoped_session(sessionmaker(autocommit=False, autoflush=False, bind=engine))

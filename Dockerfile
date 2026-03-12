@@ -42,4 +42,4 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
     CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8080/').read()" || exit 1
 
 # Run with Gunicorn (production WSGI server)
-CMD exec gunicorn --bind 0.0.0.0:${PORT} --workers 4 --threads 2 --worker-class gthread --timeout 60 --access-logfile - --error-logfile - server:app
+CMD exec gunicorn --bind 0.0.0.0:${PORT} --workers 4 --threads 4 --worker-class gthread --timeout 120 --access-logfile - --error-logfile - server:app

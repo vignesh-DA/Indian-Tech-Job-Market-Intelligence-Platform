@@ -5,15 +5,15 @@ flask-session==0.5.0
 gunicorn==21.2.0
 
 # Database
-SQLAlchemy==2.0.23
-psycopg2-binary==2.9.9
+SQLAlchemy==2.0.36
+psycopg2-binary==2.9.10
 
 # Core Dependencies
 pandas==2.2.3
-numpy==1.26.4
+numpy==2.2.3
 
 # Machine Learning & NLP
-scikit-learn==1.5.2
+scikit-learn==1.6.1
 
 # Data Visualization
 plotly==5.18.0
@@ -29,6 +29,7 @@ APScheduler==3.10.4
 python-dotenv==1.0.0
 python-decouple==3.8
 wheel==0.42.0
+cachetools==5.3.2
 
 # AI/ML APIs
 google-generativeai==0.8.3
