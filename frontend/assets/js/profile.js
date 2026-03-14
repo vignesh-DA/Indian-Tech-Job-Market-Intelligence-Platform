@@ -8,6 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeProfilePage() {
+    // Only run on pages that have the saved-jobs container
+    if (!DOM.byId('savedJobsContainer')) return;
+
     console.log('💾 Initializing saved jobs page');
 
     // Load saved jobs

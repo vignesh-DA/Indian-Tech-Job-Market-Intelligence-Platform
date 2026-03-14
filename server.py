@@ -31,25 +31,31 @@ from src.analytics import (
     get_role_distribution,
     calculate_summary_stats
 )
-from src.chatbot_engine import ChatbotEngine
 from src.oauth_handler import oauth
 from src.user_db import user_db
 from src.logger import logging
 import sys
 
-# Google Gemini API is configured in ChatbotEngine via .env
-GEMINI_AVAILABLE = True  # Will be set based on API key availability
 
 # Load environment variables
 load_dotenv()
 
-# Initialize PostgreSQL database
-try:
-    from src.database import init_db
-    init_db()
-except Exception as e:
-    logging.warning(f"Database initialization skipped: {str(e)}")
-    logging.info("Will use CSV fallback for data storage")
+# Initialize PostgreSQL database (retry up to 3 times for Render cold-start)
+_db_available = False
+_MAX_DB_INIT_ATTEMPTS = 3
+for _attempt in range(1, _MAX_DB_INIT_ATTEMPTS + 1):
+    try:
+        from src.database import init_db
+        init_db()
+        _db_available = True
+        break
+    except Exception as _e:
+        logging.error(f"Database init attempt {_attempt}/{_MAX_DB_INIT_ATTEMPTS} failed: {_e}")
+        if _attempt < _MAX_DB_INIT_ATTEMPTS:
+            logging.info("Retrying DB init in 3 seconds...")
+            time.sleep(3)
+        else:
+            logging.warning("All DB init attempts failed — falling back to CSV storage")
 
 # Initialize Flask app
 app = Flask(__name__, 
@@ -60,19 +66,7 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True
-# Use SQLAlchemy-backed sessions for PostgreSQL (multi-worker safe),
-# fall back to filesystem for local SQLite development
-_db_url = os.getenv('DATABASE_URL', 'sqlite:///gravito.db')
-if _db_url.startswith('sqlite'):
-    app.config['SESSION_TYPE'] = 'filesystem'
-else:
-    app.config['SESSION_TYPE'] = 'sqlalchemy'
-    app.config['SESSION_SQLALCHEMY_TABLE'] = 'flask_sessions'
-    try:
-        from src.database import engine as db_engine
-        app.config['SESSION_SQLALCHEMY'] = db_engine
-    except Exception:
-        app.config['SESSION_TYPE'] = 'filesystem'  # Fallback
+app.config['SESSION_TYPE'] = 'filesystem'
 Session(app)
 
 # ---------------------------------------------------------------------------
@@ -105,7 +99,7 @@ def login_required(f):
 
 # Helper function to load all jobs without date filtering
 def load_all_jobs(limit: int = 5000):
-    """Load recent jobs from database (capped to avoid full-table scans).
+    """Load jobs from DB (with retry) then fall back to CSV if DB is unavailable.
 
     Args:
         limit: Maximum rows to return (default 5000, most-recently posted first).
@@ -115,16 +109,25 @@ def load_all_jobs(limit: int = 5000):
         if cache_key in _response_cache:
             return _response_cache[cache_key]
 
-    from src.database import Job, SessionLocal as _SL
-    db = _SL()
+    # --- Try PostgreSQL first (uses _with_retry internally) ---
     try:
-        rows = db.query(Job).order_by(Job.posted_date.desc()).limit(limit).all()
-        jobs_df = pd.DataFrame([r.to_dict() for r in rows])
+        from src.database import load_jobs_from_db
+        jobs_df = load_jobs_from_db(limit=limit)
+        if not jobs_df.empty:
+            with _cache_lock:
+                _response_cache[cache_key] = jobs_df
+            return jobs_df
+        logging.warning("DB returned empty result — trying CSV fallback")
+    except Exception as db_err:
+        logging.warning(f"DB unavailable in load_all_jobs: {db_err} — falling back to CSV")
+
+    # --- CSV fallback (load_recent_jobs has its own CSV logic) ---
+    from src.data_loader import load_recent_jobs
+    jobs_df = load_recent_jobs(days=None)
+    if not jobs_df.empty:
         with _cache_lock:
             _response_cache[cache_key] = jobs_df
-        return jobs_df
-    finally:
-        db.close()
+    return jobs_df
 
 # ========================
 # OAUTH ROUTES
@@ -486,17 +489,8 @@ def get_job_recommendations():
             'preferred_locations': data.get('preferred_locations', [])
         }
         
-        # Load fresh jobs from last 30 days for recommendations
-        from src.database import Job, SessionLocal as _SL2
-        from datetime import timedelta
-        _db2 = _SL2()
-        try:
-            cutoff_date = datetime.utcnow() - timedelta(days=30)
-            jobs = _db2.query(Job).filter(Job.posted_date >= cutoff_date).limit(3000).all()
-            data_jobs = [job.to_dict() for job in jobs]
-        finally:
-            _db2.close()
-        jobs_df = pd.DataFrame(data_jobs)
+        # Load fresh jobs — tries PostgreSQL (with retry) then falls back to CSV
+        jobs_df = load_recent_jobs(days=30)
         
         if jobs_df.empty:
             return jsonify({
@@ -563,6 +557,7 @@ def get_job_recommendations():
         # Convert DataFrame to list of dicts for JSON serialization
         recommendations_list = []
         if not recommendations.empty:
+            recommendations = recommendations.fillna('')
             for idx, row in recommendations.iterrows():
                 # Parse skills strings to lists
                 matched_skills = [s.strip() for s in str(row.get('matched_skills', '')).split(',') if s.strip()]
@@ -1126,132 +1121,6 @@ def get_last_updated():
             'message': str(e)
         }), 500
 
-# ========================
-# CHATBOT ENDPOINT
-# ========================
-
-# Initialize chatbot engine
-chatbot = ChatbotEngine()
-
-# Check if OpenRouter API key is configured
-openrouter_api_key = os.getenv('OPENROUTER_API_KEY')
-if openrouter_api_key:
-    logging.info("OpenRouter API key found - Gemini 2.5 Flash enabled")
-    OPENROUTER_AVAILABLE = True
-else:
-    logging.warning("OPENROUTER_API_KEY not found in .env - using fallback responses")
-    OPENROUTER_AVAILABLE = False
-
-@app.route('/api/chat', methods=['POST'])
-def chat():
-    """
-    Chatbot endpoint
-    Handles conversation with Google Gemini API integration
-    
-    Request JSON:
-    {
-        "message": "user message",
-        "user_profile": {
-            "role": "role",
-            "experience": "experience",
-            "location": "location",
-            "skills": ["skill1", "skill2"],
-            "total_matched_jobs": 24
-        },
-        "conversation_history": [
-            {"role": "user", "content": "message"},
-            {"role": "bot", "content": "response"}
-        ]
-    }
-    """
-    try:
-        data = request.get_json()
-        user_message = data.get('message', '').strip() or data.get('user_message', '').strip()
-        user_profile = data.get('user_profile', {})
-        conversation_history = data.get('conversation_history', [])
-        
-        # Get user's name from session and add to profile
-        user_name = session.get('user_name', 'there')
-        user_profile['name'] = user_name  # Add name to profile for fallback responses
-        
-        if not user_message:
-            return jsonify({
-                'success': False,
-                'message': 'Message cannot be empty'
-            }), 400
-        
-        logging.info(f"Chat request from {user_name}: {user_message[:100]}")
-        logging.debug(f"User profile: {user_profile}")
-        
-        # Ensure user_profile has required fields
-        if not user_profile:
-            user_profile = {}
-        if 'role' not in user_profile or not user_profile['role']:
-            user_profile['role'] = 'job seeker'
-        if 'experience' not in user_profile or not user_profile['experience']:
-            user_profile['experience'] = 'mid-level'
-        if 'location' not in user_profile or not user_profile['location']:
-            user_profile['location'] = 'India'
-        
-        # Get current job recommendations for context (skip if error)
-        recommendations = []
-        try:
-            # Load sample jobs for chatbot context (limit to avoid slowdown)
-            from src.database import Job, SessionLocal
-            db_session = SessionLocal()
-            jobs_query = db_session.query(Job).limit(100)
-            jobs_list = jobs_query.all()
-            db_session.close()
-            if jobs_list:
-                recommendations = [job.to_dict() for job in jobs_list[:5]]
-        except Exception as rec_error:
-            logging.warning(f"Could not load recommendations: {str(rec_error)}")
-            # Continue without recommendations
-        
-        # Generate response using Google Gemini API (with OpenRouter fallback)
-        try:
-            response = chatbot.generate_response(
-                user_message=user_message,
-                user_profile=user_profile,
-                conversation_history=conversation_history,
-                recommendations=recommendations,
-                use_gemini=GEMINI_AVAILABLE,
-                user_name=user_name
-            )
-            logging.debug(f"Chatbot response: success={response.get('success')}, intent={response.get('intent')}")
-        except Exception as gen_error:
-            logging.error(f"Chatbot generation failed: {str(gen_error)}")
-            import traceback
-            logging.error(f"Traceback: {traceback.format_exc()}")
-            response = {
-                'success': False,
-                'message': f'Error generating response: {str(gen_error)}'
-            }
-        
-        if response['success']:
-            logging.info(f"Chat response generated - Intent: {response['intent']}")
-            return jsonify({
-                'success': True,
-                'message': response['message'],
-                'intent': response['intent'],
-                'category': response['category'],
-                'confidence': response['confidence']
-            })
-        else:
-            logging.error(f"Chat error: {response.get('error')}")
-            return jsonify({
-                'success': False,
-                'message': response['message']
-            }), 500
-    
-    except Exception as e:
-        import traceback
-        logging.error(f"Chat endpoint error: {str(e)}")
-        logging.error(f"Traceback: {traceback.format_exc()}")
-        return jsonify({
-            'success': False,
-            'message': f'Error processing chat: {str(e)}'
-        }), 500
 
 # ========================
 # ERROR HANDLERS
