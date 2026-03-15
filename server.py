@@ -214,17 +214,35 @@ def get_current_user():
         return jsonify({'authenticated': False})
     
     try:
-        user = user_db.get_user_by_id(session['user_id'])
+        # On Vercel, SQLite DB doesn't persist between invocations.
+        # Serve user info directly from the session cookie (set at login time).
+        user_from_session = {
+            'id': session.get('user_id'),
+            'email': session.get('user_email'),
+            'name': session.get('user_name'),
+            'picture': session.get('user_picture'),
+            'created_at': session.get('user_created_at', ''),
+            'last_login': session.get('user_last_login', '')
+        }
+
+        # Also try DB lookup for richer data, fall back to session if DB unavailable
+        try:
+            db_user = user_db.get_user_by_id(session['user_id'])
+            if db_user:
+                user_from_session = {
+                    'id': db_user['id'],
+                    'email': db_user['email'],
+                    'name': db_user['name'],
+                    'picture': db_user['picture'],
+                    'created_at': db_user.get('created_at', ''),
+                    'last_login': db_user.get('last_login', '')
+                }
+        except Exception:
+            pass  # Fall back to session data
+
         return jsonify({
             'authenticated': True,
-            'user': {
-                'id': user['id'],
-                'email': user['email'],
-                'name': user['name'],
-                'picture': user['picture'],
-                'created_at': user['created_at'],
-                'last_login': user['last_login']
-            }
+            'user': user_from_session
         })
     except Exception as e:
         logging.error(f"Error getting user info: {str(e)}")
