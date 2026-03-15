@@ -76,8 +76,8 @@ class AdzunaAPI:
             with self.rate_limit_lock:
                 current_time = time.time()
                 time_since_last = current_time - self.last_request_time
-                if time_since_last < 3:
-                    time.sleep(3 - time_since_last)
+                if time_since_last < 5:
+                    time.sleep(5 - time_since_last)
                 self.last_request_time = time.time()
             
             # Add retry logic
@@ -181,13 +181,13 @@ class AdzunaAPI:
             logging.info(f"🚀 CONCURRENT JOB FETCH STARTED")
             logging.info("=" * 70)
             logging.info(f"Total combinations: {total} ({len(roles)} roles × {len(locations)} locations)")
-            logging.info(f"Parallel workers: 5 (5 simultaneous API calls)")
-            logging.info(f"Rate limiting: 3 seconds between calls (thread-safe)")
+            logging.info(f"Parallel workers: 2 (2 simultaneous API calls - rate limit friendly)")
+            logging.info(f"Rate limiting: 5 seconds between calls (thread-safe)")
             logging.info("=" * 70)
             
             # Use ThreadPoolExecutor for parallel fetching
-            # max_workers=5: Fetch 5 combinations simultaneously
-            with ThreadPoolExecutor(max_workers=5) as executor:
+            # max_workers=2: Reduced to avoid Adzuna free-tier 429 rate limits
+            with ThreadPoolExecutor(max_workers=2) as executor:
                 # Submit all tasks
                 future_to_combo = {
                     executor.submit(
