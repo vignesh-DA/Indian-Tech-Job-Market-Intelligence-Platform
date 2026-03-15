@@ -1,4 +1,4 @@
-"""
+ """
 Job Scrapers Module
 Fetch job data from Adzuna API and other sources
 """
@@ -76,15 +76,27 @@ class AdzunaAPI:
             with self.rate_limit_lock:
                 current_time = time.time()
                 time_since_last = current_time - self.last_request_time
-                if time_since_last < 5:
-                    time.sleep(5 - time_since_last)
+                if time_since_last < 8:
+                    time.sleep(8 - time_since_last)
                 self.last_request_time = time.time()
             
-            # Add retry logic
-            max_retries = 2
+            # Add retry logic with 429 backoff
+            max_retries = 3
             for attempt in range(max_retries + 1):
                 try:
                     response = requests.get(url, params=params, timeout=timeout)
+                    
+                    # Handle 429 rate limit with exponential backoff
+                    if response.status_code == 429:
+                        wait_time = 30 * (2 ** attempt)  # 30s, 60s, 120s
+                        if attempt < max_retries:
+                            logging.warning(f"429 Rate limit hit. Waiting {wait_time}s before retry {attempt + 1}/{max_retries}...")
+                            time.sleep(wait_time)
+                            continue
+                        else:
+                            logging.error("429 Rate limit - max retries exceeded, skipping this request")
+                            return []
+                    
                     response.raise_for_status()
                     
                     data = response.json()
@@ -182,7 +194,7 @@ class AdzunaAPI:
             logging.info("=" * 70)
             logging.info(f"Total combinations: {total} ({len(roles)} roles × {len(locations)} locations)")
             logging.info(f"Parallel workers: 2 (2 simultaneous API calls - rate limit friendly)")
-            logging.info(f"Rate limiting: 5 seconds between calls (thread-safe)")
+            logging.info(f"Rate limiting: 8 seconds between calls + 429 backoff (30s/60s/120s)")
             logging.info("=" * 70)
             
             # Use ThreadPoolExecutor for parallel fetching
