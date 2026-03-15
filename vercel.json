@@ -5,7 +5,7 @@
   "routes": [
     {
       "src": "/api/(.*)",
-      "dest": "https://gravito-backend-placeholder.onrender.com/api/$1"
+      "dest": "https://indian-tech-job-market-intelligence.onrender.com/api/$1"
     },
     {
       "src": "/(.*)\\.([a-zA-Z0-9]+)$",
