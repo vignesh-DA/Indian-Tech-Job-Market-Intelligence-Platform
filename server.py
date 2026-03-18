@@ -5,6 +5,8 @@ Replaces Streamlit with a proper REST API + modern frontend
 import time
 # Disable MKL threading to avoid Fortran runtime errors with scikit-learn
 import os
+import sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 os.environ['MKL_NUM_THREADS'] = '1'
 os.environ['NUMEXPR_NUM_THREADS'] = '1'
 os.environ['OMP_NUM_THREADS'] = '1'
@@ -29,7 +31,30 @@ from src.analytics import (
     get_role_distribution,
     calculate_summary_stats
 )
-from src.chatbot_engine import ChatbotEngine
+
+try:
+    from src.chatbot_engine import ChatbotEngine
+except ModuleNotFoundError:
+    class ChatbotEngine:
+        """Fallback chatbot engine if deployment bundle misses src.chatbot_engine."""
+
+        def generate_response(
+            self,
+            user_message,
+            user_profile=None,
+            conversation_history=None,
+            recommendations=None,
+            use_gemini=True,
+            user_name=None,
+        ):
+            return {
+                'success': True,
+                'message': 'Chatbot is temporarily in fallback mode. Please try your query again in a moment.',
+                'intent': 'general',
+                'category': 'fallback',
+                'confidence': 0.5,
+            }
+
 from src.oauth_handler import oauth
 from src.user_db import user_db
 from src.logger import logging
