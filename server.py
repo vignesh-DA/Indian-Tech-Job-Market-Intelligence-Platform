@@ -55,7 +55,6 @@ except ModuleNotFoundError:
             }
 
 from src.oauth_handler import oauth
-from src.user_db import user_db
 from src.logger import logging
 import sys
 
@@ -82,6 +81,9 @@ app = Flask(__name__,
 app.config['SECRET_KEY'] = os.getenv('FLASK_SECRET_KEY', 'dev-secret-key-change-in-production')
 app.config['PERMANENT_SESSION_LIFETIME'] = 3600  # 1 hour session timeout
 app.config['SESSION_REFRESH_EACH_REQUEST'] = True  # Refresh session on each request
+app.config['SESSION_COOKIE_SECURE'] = True
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
 
 # Enable CORS
 CORS(app)
@@ -159,6 +161,8 @@ def oauth_callback():
         session['user_email'] = user['email']
         session['user_name'] = user['name']
         session['user_picture'] = user['picture']
+        session['user_created_at'] = user.get('created_at') if isinstance(user, dict) else None
+        session['user_last_login'] = user.get('last_login') if isinstance(user, dict) else None
         
         logging.info(f"User {user['email']} logged in successfully")
         
@@ -186,23 +190,20 @@ def get_current_user():
     """Get current logged-in user info"""
     if 'user_id' not in session:
         return jsonify({'authenticated': False})
-    
-    try:
-        user = user_db.get_user_by_id(session['user_id'])
-        return jsonify({
-            'authenticated': True,
-            'user': {
-                'id': user['id'],
-                'email': user['email'],
-                'name': user['name'],
-                'picture': user['picture'],
-                'created_at': user['created_at'],
-                'last_login': user['last_login']
-            }
-        })
-    except Exception as e:
-        logging.error(f"Error getting user info: {str(e)}")
-        return jsonify({'authenticated': False})
+
+    # Trust signed session cookie directly.
+    # This avoids Vercel ephemeral filesystem issues with SQLite-backed user storage.
+    return jsonify({
+        'authenticated': True,
+        'user': {
+            'id': session.get('user_id'),
+            'email': session.get('user_email'),
+            'name': session.get('user_name'),
+            'picture': session.get('user_picture'),
+            'created_at': session.get('user_created_at'),
+            'last_login': session.get('user_last_login')
+        }
+    })
 
 # ========================
 # HEALTH CHECK ENDPOINT
