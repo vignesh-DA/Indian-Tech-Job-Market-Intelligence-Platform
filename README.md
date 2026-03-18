@@ -2,7 +2,7 @@
 
 <div align="center">
 
-### Built by [vignesh-DA](https://github.com/vignesh-DA)
+### Built by [vignesh](https://github.com/vignesh-DA)
 
 [![GitHub](https://img.shields.io/badge/GitHub-vignesh--DA-181717?logo=github)](https://github.com/vignesh-DA)
 ![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB?logo=python&logoColor=white)
